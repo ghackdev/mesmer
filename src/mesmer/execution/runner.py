@@ -2,12 +2,18 @@ from __future__ import annotations
 
 from pydantic import Field
 
+from mesmer.artifacts.messages import Message, assistant_message, system_message
 from mesmer.core.config import MesmerModel
 from mesmer.core.enums import LogFormat, RunOutcome, RunStatus, SpanName
 from mesmer.core.errors import RuntimeExecutionError
 from mesmer.execution.budgets import BudgetTracker
 from mesmer.execution.run import Run
-from mesmer.execution.state import AttackState, Attempt
+from mesmer.execution.state import (
+    AttackState,
+    Attempt,
+    ReproductionArtifact,
+    ReproductionTarget,
+)
 from mesmer.flows.base import AttackContext
 from mesmer.telemetry.logger import RunLogger
 from mesmer.telemetry.tracing import start_span
@@ -75,11 +81,11 @@ class Runner(MesmerModel):
                             logger=logger,
                         )
                         state = await run.attack.execute(objective, context)
-                        self._emit_objective_success(
-                            logger,
+                        self._store_objective_success(
                             state,
                             attack_name=run.attack.name,
                             target_name=run.target.name,
+                            target_model=getattr(run.target, "model", None),
                             target_system_prompt=getattr(run.target, "system_prompt", None),
                         )
                         states.append(state)
@@ -102,6 +108,7 @@ class Runner(MesmerModel):
                 succeeded=result.succeeded,
                 attempts=result.attempts_count,
             )
+            self._emit_reproduction_artifacts(logger, states)
             self.results.append(result)
             return result
 
@@ -112,26 +119,42 @@ class Runner(MesmerModel):
             return None
         return 600
 
-    def _emit_objective_success(
+    def _store_objective_success(
         self,
-        logger: RunLogger,
         state: AttackState,
         *,
         attack_name: str,
         target_name: str,
+        target_model: str | None,
         target_system_prompt: str | None,
     ) -> None:
-        attempt = next((item for item in state.attempts if item.succeeded), None)
-        if attempt is None:
+        attempts = [item for item in state.attempts if item.succeeded]
+        if not attempts:
             return
-        artifact = _reproduction_artifact(
-            attempt,
-            attack_name=attack_name,
-            target_name=target_name,
-            target_system_prompt=target_system_prompt,
-        )
-        state.metadata["successful_reproduction"] = artifact
-        logger.emit("objective.success", **artifact)
+        artifacts = [
+            _reproduction_artifact(
+                attempt,
+                attack_name=attack_name,
+                target_name=target_name,
+                target_model=target_model,
+                target_system_prompt=target_system_prompt,
+            ).model_dump(mode="json")
+            for attempt in attempts
+        ]
+        state.metadata["reproduction_artifacts"] = artifacts
+
+    def _emit_reproduction_artifacts(
+        self,
+        logger: RunLogger,
+        states: list[AttackState],
+    ) -> None:
+        for state in states:
+            artifacts = state.metadata.get("reproduction_artifacts", [])
+            if not isinstance(artifacts, list):
+                continue
+            for artifact in artifacts:
+                if isinstance(artifact, dict):
+                    logger.emit("objective.success", **_compact_success_fields(artifact))
 
 
 def _reproduction_artifact(
@@ -139,43 +162,84 @@ def _reproduction_artifact(
     *,
     attack_name: str,
     target_name: str,
+    target_model: str | None,
     target_system_prompt: str | None,
-) -> dict[str, object]:
-    messages = [
-        {
-            "role": message.role.value,
-            "content": message.content,
-        }
-        for message in attempt.candidate.messages
-    ]
-    user_messages = [message["content"] for message in messages if message["role"] == "user"]
-    final_prompt = str(user_messages[-1]) if user_messages else ""
+) -> ReproductionArtifact:
+    messages = _reproduction_messages(attempt, target_system_prompt)
     successful_judgement = next(
         (judgement for judgement in attempt.judgements if judgement.status.value == "pass"),
         attempt.judgements[0] if attempt.judgements else None,
     )
-    score = successful_judgement.score if successful_judgement is not None else None
-    reason = successful_judgement.reason if successful_judgement is not None else ""
-    mode = "single_turn" if len(messages) == 1 else "multi_turn"
-    reproduction = (
-        f"Run the {mode} candidate against target '{target_name}' using attack '{attack_name}'. "
-        "Use the listed target system prompt, then send the listed message sequence in order. "
-        "The final user prompt is the candidate that produced the successful target response."
+    raw_score = (
+        successful_judgement.metadata.get("raw_score")
+        if successful_judgement is not None
+        else None
     )
+    normalized_score = successful_judgement.score if successful_judgement is not None else None
+    reason = successful_judgement.reason if successful_judgement is not None else ""
+    return ReproductionArtifact(
+        objective=attempt.objective,
+        attempt_id=attempt.id,
+        candidate_id=attempt.candidate.id,
+        response_id=attempt.response.id,
+        turn=attempt.turn,
+        target=ReproductionTarget(
+            name=target_name,
+            model=target_model,
+            system_prompt=target_system_prompt,
+        ),
+        messages=messages,
+        score=raw_score if raw_score is not None else normalized_score,
+        normalized_score=normalized_score,
+        reason=reason,
+        judgement=successful_judgement,
+        trace={
+            "attack": attack_name,
+            **attempt.metadata.get("trace", {}),
+        },
+    )
+
+
+def _compact_success_fields(artifact: dict[str, object]) -> dict[str, object]:
+    objective = artifact.get("objective", {})
+    assert isinstance(objective, dict)
     return {
-        "objective_id": attempt.objective.id,
-        "goal": attempt.objective.goal,
-        "attempt_id": attempt.id,
-        "candidate_id": attempt.candidate.id,
-        "response_id": attempt.response.id,
-        "turn": attempt.turn,
-        "mode": mode,
-        "target": target_name,
-        "target_system_prompt": target_system_prompt,
-        "prompt": final_prompt,
-        "messages": messages,
-        "response": attempt.response.text,
-        "score": score,
-        "reason": reason,
-        "reproduction": reproduction,
+        "artifact_id": artifact.get("id"),
+        "objective_id": objective.get("id"),
+        "goal": objective.get("goal"),
+        "attempt_id": artifact.get("attempt_id"),
+        "candidate_id": artifact.get("candidate_id"),
+        "response_id": artifact.get("response_id"),
+        "turn": artifact.get("turn"),
+        "target": artifact.get("target"),
+        "messages": artifact["messages"],
+        "score": artifact.get("score"),
+        "normalized_score": artifact.get("normalized_score"),
+        "reason": artifact.get("reason"),
+        "trace": artifact.get("trace", {}),
     }
+
+
+def _reproduction_messages(
+    attempt: Attempt,
+    target_system_prompt: str | None,
+) -> list[Message]:
+    messages: list[Message] = []
+    if target_system_prompt:
+        messages.append(system_message(target_system_prompt))
+    messages.extend(attempt.candidate.messages)
+    messages.append(
+        assistant_message(attempt.response.text).model_copy(
+            update={
+                "metadata": {
+                    "response_id": attempt.response.id,
+                    "finish_reason": attempt.response.metadata.get("finish_reason"),
+                    "input_tokens": attempt.response.input_tokens,
+                    "output_tokens": attempt.response.output_tokens,
+                    "latency_ms": attempt.response.latency_ms,
+                    **attempt.response.metadata,
+                }
+            }
+        )
+    )
+    return messages

@@ -85,6 +85,11 @@ class EvaluationField(StrEnum):
     PASSED = "passed"
 
 
+class ProposalMessageMode(StrEnum):
+    REPLACE = "replace"
+    APPEND_USER = "append_user"
+
+
 class EvaluatorFailurePolicy(StrEnum):
     RETRY_THEN_RECORD = "retry_then_record"
     RAISE = "raise"

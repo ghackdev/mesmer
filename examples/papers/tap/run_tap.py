@@ -196,6 +196,10 @@ def positive_int(value: str) -> int:
     return parsed
 
 
+def log_format_default() -> str:
+    return os.getenv(ENV_LOG_FORMAT, LogFormat.RICH.value)
+
+
 def build_source(rows: int) -> RemoteDatasetSource:
     return RemoteDatasetSource(
         url=os.getenv(ENV_TAP_DATASET_URL, TAP_ADV_BENCH_SUBSET_URL),
@@ -332,6 +336,12 @@ async def main() -> None:
         default=env_int(ENV_TAP_KEEP_LAST_N, DEFAULT_KEEP_LAST_N),
         help="Number of attacker history turns retained per branch.",
     )
+    parser.add_argument(
+        "--log-format",
+        choices=[item.value for item in LogFormat],
+        default=log_format_default(),
+        help="Log format for this run. Defaults to rich unless MESMER_LOG_FORMAT is set.",
+    )
     args = parser.parse_args()
 
     target_model = os.getenv(ENV_TARGET_MODEL, DEFAULT_LLM_MODEL)
@@ -360,7 +370,7 @@ async def main() -> None:
     )
     result = await Runner(
         verbose=True,
-        log_format=LogFormat(os.getenv(ENV_LOG_FORMAT, LogFormat.COMPACT.value)),
+        log_format=LogFormat(args.log_format),
     ).run(run)
     successes = sum(
         1 for state in result.states if any(attempt.succeeded for attempt in state.attempts)

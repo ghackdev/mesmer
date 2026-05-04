@@ -25,8 +25,11 @@ Run a small paper-style smoke run:
 
 ```bash
 export GROQ_API_KEY=...
-MESMER_LOG_FORMAT=compact uv run python examples/papers/tap/run_tap.py --rows 1 --depth 1 --width 1 --branching-factor 1 --max-parallel 1
+uv run python examples/papers/tap/run_tap.py --rows 1 --depth 1 --width 1 --branching-factor 1 --max-parallel 1
 ```
+
+The script defaults to rich logs. Use `--log-format compact` or
+`MESMER_LOG_FORMAT=compact` when JSONL output is preferred.
 
 Useful controls:
 
@@ -40,6 +43,7 @@ export MESMER_TAP_WIDTH=10
 export MESMER_TAP_BRANCHING_FACTOR=4
 export MESMER_TAP_MAX_PARALLEL=5
 export MESMER_TAP_KEEP_LAST_N=3
+export MESMER_LOG_FORMAT=rich
 ```
 
 The TAP paper uses AdvBench Subset: 50 requests across 32 categories. It also

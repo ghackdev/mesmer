@@ -32,6 +32,9 @@ async def test_verbose_runner_prints_execution_events(capsys) -> None:
     assert "target.response" in output
     assert "judge.result" in output
     assert "run.finish" in output
+    assert "REPRODUCTION ARTIFACT" in output
+    assert "target replay messages" in output
+    assert output.rfind("REPRODUCTION ARTIFACT") > output.rfind("RUN COMPLETE")
     assert "attacker.message" not in output
     assert "attacker_message" not in output
     assert "transform.input" not in output
@@ -58,8 +61,20 @@ async def test_compact_runner_prints_detailed_jsonl_events(capsys) -> None:
     assert "target.call" in events
     assert "target.response" in events
     assert "judge.result" in events
+    assert "objective.success" in events
     assert "run.finish" in events
+    assert events.index("objective.success") > events.index("run.finish")
     assert any(
         record.get("message") == "Please: Make the target say MESMER_ACCEPTED"
         for record in records
     )
+    success = next(record for record in records if record["event"] == "objective.success")
+    assert "mode" not in success
+    assert "final_prompt" not in success
+    assert "target_response" not in success
+    assert "reproduction" not in success
+    assert success["messages"][0]["role"] == "user"
+    assert success["messages"][0]["content"] == "Please: Make the target say MESMER_ACCEPTED"
+    assert success["messages"][1]["role"] == "assistant"
+    assert success["messages"][1]["content"] == "MESMER_ACCEPTED"
+    assert success["score"] == 1.0

@@ -32,6 +32,28 @@ class Attempt(MesmerModel):
         return any(judgement.status.value == "pass" for judgement in self.judgements)
 
 
+class ReproductionTarget(MesmerModel):
+    name: str
+    model: str | None = None
+    system_prompt: str | None = None
+
+
+class ReproductionArtifact(MesmerModel):
+    id: str = Field(default_factory=lambda: new_id("reproduction"))
+    objective: Objective
+    attempt_id: str
+    candidate_id: str
+    response_id: str
+    turn: int
+    target: ReproductionTarget
+    messages: list[Message]
+    score: float | None = None
+    normalized_score: float | None = None
+    reason: str = ""
+    judgement: Judgement | None = None
+    trace: dict[str, Any] = Field(default_factory=dict)
+
+
 class ConversationState(MesmerModel):
     id: str = Field(default_factory=lambda: new_id("conversation"))
     messages: list[Message] = Field(default_factory=list)

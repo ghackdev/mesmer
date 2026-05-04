@@ -38,6 +38,7 @@ from mesmer.core.enums import (
     EvaluatorFailurePolicy,
     EvaluatorFailureReason,
     LogFormat,
+    ProposalMessageMode,
     StateFact,
     TargetBinding,
 )
@@ -51,6 +52,7 @@ from mesmer.datasets import DatasetColumnMap, RemoteDatasetSource
 from mesmer.execution.budgets import Budget
 from mesmer.execution.run import Run
 from mesmer.execution.runner import Runner
+from mesmer.execution.state import ReproductionArtifact, ReproductionTarget
 from mesmer.flows.agent import AgentFlow, ConversationMemory, LLMPlanner
 from mesmer.flows.base import Flow
 from mesmer.flows.node import NodeFlow
@@ -81,6 +83,7 @@ from mesmer.search import (
     Constrain,
     ConstraintResult,
     ConstraintScoreSelector,
+    ContinueConversation,
     EvaluationResult,
     FeedbackBuilder,
     FrontierSelector,
@@ -140,6 +143,7 @@ __all__ = [
     "ContainerComponent",
     "Contains",
     "ContainsCriterion",
+    "ContinueConversation",
     "ConversationMemory",
     "ConversationPolicy",
     "CriteriaJudge",
@@ -183,6 +187,7 @@ __all__ = [
     "PlanExecuteLoop",
     "Program",
     "PromptLeakageJudge",
+    "ProposalMessageMode",
     "Propose",
     "Proposer",
     "PruneCandidates",
@@ -195,6 +200,8 @@ __all__ = [
     "RefusalJudge",
     "RemoteDatasetSource",
     "Repeat",
+    "ReproductionArtifact",
+    "ReproductionTarget",
     "ResponseEvaluator",
     "Run",
     "Runner",

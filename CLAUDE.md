@@ -1,9 +1,12 @@
 # Mesmer Project Preferences
 
+- This file is the current architecture and preference snapshot for the repository. Any meaningful repository change must update `CLAUDE.md` in the same change when it alters architecture, primitives, runtime behavior, logging, examples, or project conventions.
+- Record durable lessons learned, user preferences, design decisions, implementation constraints, and workflow conventions in `CLAUDE.md` as they emerge, so the next AI agent inherits the current project context instead of rediscovering it.
 - Prefer composition over inheritance. Keep base classes minimal; compose behavior from small components.
 - This framework is brand new. Prefer clean breaking refactors over compatibility shims unless compatibility is explicitly requested.
 - Do not preserve dead code or legacy compatibility paths by default. Remove obsolete parsers, shims, and branches when replacing behavior.
 - Any LLM-backed component that needs machine-readable output must use provider-enforced structured output and validate it with a schema. Keep free-text LLM calls only for natural-language outputs.
+- Provider-enforced structured output is the default contract for machine-readable control flow. Do not add prompt-only JSON instructions plus ad hoc parsing unless the user explicitly asks for a temporary compatibility path.
 - Public APIs should be declarative, self-explaining, and optimized for experimentation.
 - Prefer ordered component trees over flat class arguments when order/hierarchy matters.
 - Do not expose imperative `steps` as the normal authoring path; raw execution steps are internal/advanced.
@@ -17,10 +20,16 @@
 - Stop conditions are not evaluators. Evaluators produce facts; stop components consume facts.
 - Feedback is not evaluation. Feedback turns observations/evaluations into attacker context for the next iteration.
 - Constraints are not hardcoded pre-target gates. They are components whose order in the tree determines when they run.
+- Search primitives should carry enough typed state to reproduce results. Candidate trajectories keep target replay messages and attacker-side history when a technique needs iterative refinement.
+- Successful runs must emit a reproduction artifact, not just a pass/fail summary. The artifact should include the exact target replay `messages`, target metadata, judgement score/reason, and search trace needed to manually replay the discovered case.
+- The rich logger should end successful runs with a clear reproduction punchline. Compact logs should stay machine-readable JSONL and include the same artifact data without redundant fields like `mode`, `final_prompt`, or `target_response`.
+- Interactive example scripts should default to rich logs and offer an explicit compact/JSONL option for automation.
 - Extract stable reusable mechanics from papers, not paper-specific prompts, datasets, thresholds, URLs, or naming.
 - One paper example should implement one paper. Do not blend TAP, PAIR, or other techniques inside a single paper example.
+- Paper implementations should remain generic at the primitive level while being able to express the paper's actual flow, loop structure, prompts, pruning/selection, target calls, evaluator calls, and stopping behavior.
 - Paper examples should use real model actors/targets through Mesmer wrappers, not direct LiteLLM calls or fake callable targets unless explicitly marked as tests.
 - Examples should showcase capability and make model/target/system prompt configuration obvious.
+- Example scripts should expose small-run controls for local testing, such as row limits, search depth, width, branching factor, and maximum parallelism when relevant.
 - Use constants or enums for public configuration concepts instead of magic strings.
 - Group code by cohesion and runtime responsibility, not abstract taxonomy.
 - When in doubt, make the framework more flexible for experiment composition, not more vendor-locked around one strategy.

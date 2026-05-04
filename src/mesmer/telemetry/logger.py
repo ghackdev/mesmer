@@ -9,6 +9,7 @@ from rich.console import Console, Group, RenderableType
 from rich.padding import Padding
 from rich.panel import Panel
 from rich.rule import Rule
+from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
 
@@ -24,7 +25,6 @@ TEXT_FIELD_NAMES = frozenset(
         "prompt",
         "raw",
         "reason",
-        "reproduction",
         "response",
         "target_system_prompt",
         "text",
@@ -176,6 +176,8 @@ class RunLogger(MesmerModel):
             return self._run_header(fields)
         if event == "run.finish":
             return self._run_footer(fields)
+        if event == "objective.success":
+            return self._reproduction_artifact_panel(fields)
 
         event_row = self._event_row(event, fields)
         detail_table = self._detail_table(event, fields)
@@ -245,6 +247,138 @@ class RunLogger(MesmerModel):
             padding=(0, 1),
             expand=False,
         )
+
+    def _reproduction_artifact_panel(self, fields: dict[str, Any]) -> RenderableType:
+        title = Text()
+        title.append("REPRODUCTION ARTIFACT", style="bold green")
+        title.append(f"  {self._elapsed()}", style="dim")
+        title.append("  objective.success", style="dim")
+
+        target = fields.get("target") if isinstance(fields.get("target"), dict) else {}
+        assert isinstance(target, dict)
+
+        summary = Table.grid(padding=(0, 2))
+        summary.add_column(style="dim", no_wrap=True)
+        summary.add_column(ratio=1)
+        for key in (
+            "artifact_id",
+            "objective_id",
+            "goal",
+            "attempt_id",
+            "candidate_id",
+            "response_id",
+            "turn",
+            "score",
+            "normalized_score",
+        ):
+            if key in fields and fields[key] is not None:
+                summary.add_row(key, self._artifact_value_text(fields[key]))
+        for key in ("name", "model", "system_prompt"):
+            if target.get(key) is not None:
+                summary.add_row(f"target.{key}", self._artifact_value_text(target[key]))
+
+        reason = str(fields.get("reason") or "")
+        sections: list[RenderableType] = [title, Rule(style="green"), summary]
+        if reason:
+            sections.extend(
+                [
+                    Rule("judgement", style="dim"),
+                    Text(reason, style="white", overflow="fold"),
+                ]
+            )
+
+        messages = fields.get("messages", [])
+        if isinstance(messages, list) and messages:
+            sections.append(Rule("target replay messages", style="dim"))
+            sections.extend(self._message_panels(messages))
+
+        trace = fields.get("trace", {})
+        if isinstance(trace, dict) and trace:
+            sections.extend(
+                [
+                    Rule("search trace", style="dim"),
+                    Panel(
+                        self._json_syntax(trace),
+                        border_style="dim",
+                        padding=(0, 1),
+                        expand=False,
+                    ),
+                ]
+            )
+
+        return Padding(
+            Panel(
+                Group(*sections),
+                border_style="green",
+                padding=(0, 1),
+                expand=False,
+            ),
+            (1, 0, 0, 0),
+        )
+
+    def _message_panels(self, messages: list[Any]) -> list[RenderableType]:
+        panels: list[RenderableType] = []
+        for index, message in enumerate(messages, start=1):
+            if not isinstance(message, dict):
+                panels.append(
+                    Panel(
+                        Text(str(message), style="white", overflow="fold"),
+                        title=f"message {index}",
+                        border_style="dim",
+                        padding=(0, 1),
+                        expand=False,
+                    )
+                )
+                continue
+
+            role = str(message.get("role") or "unknown")
+            content = str(message.get("content") or "")
+            metadata = message.get("metadata") if isinstance(message.get("metadata"), dict) else {}
+
+            table = Table.grid(padding=(0, 1))
+            table.add_column(style="dim", no_wrap=True)
+            table.add_column(ratio=1)
+            table.add_row("role", Text(role, style=self._message_role_style(role)))
+            table.add_row("content", Text(content, style="white", overflow="fold"))
+            if metadata:
+                table.add_row("metadata", self._json_syntax(metadata))
+
+            panels.append(
+                Panel(
+                    table,
+                    title=f"message {index}",
+                    border_style=self._message_role_style(role),
+                    padding=(0, 1),
+                    expand=False,
+                )
+            )
+        return panels
+
+    def _artifact_value_text(self, value: Any) -> Text:
+        if isinstance(value, float):
+            rendered = f"{value:.2f}"
+        elif isinstance(value, (dict, list)):
+            rendered = json.dumps(value, ensure_ascii=False, default=str)
+        else:
+            rendered = str(value)
+        return Text(rendered, style="white", overflow="fold")
+
+    def _json_syntax(self, value: Any) -> Syntax:
+        return Syntax(
+            json.dumps(value, indent=2, ensure_ascii=False, default=str),
+            "json",
+            word_wrap=True,
+            background_color="default",
+        )
+
+    def _message_role_style(self, role: str) -> str:
+        if role == "system":
+            return "magenta"
+        if role == "assistant":
+            return "cyan"
+        if role == "user":
+            return "green"
+        return "white"
 
     def _scoreboard(self, outcome: Any, succeeded: bool) -> Table:
         table = Table.grid(padding=(0, 1))

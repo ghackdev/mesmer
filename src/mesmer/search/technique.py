@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import Field
 
-from mesmer.artifacts.messages import user_message
+from mesmer.artifacts.messages import assistant_message, user_message
 from mesmer.core.config import MesmerModel
 from mesmer.core.constants import (
     DEFAULT_SEARCH_STOP_REASON,
@@ -272,6 +272,29 @@ class Query(Component):
         return self.target
 
 
+class ContinueConversation(Component):
+    name: str = "continue_conversation"
+    requires: set[StateFact] = Field(
+        default_factory=lambda: {StateFact.FRONTIER, StateFact.TARGET_RESPONSES}
+    )
+    provides: set[StateFact] = Field(
+        default_factory=lambda: {StateFact.FRONTIER, StateFact.CONVERSATIONS}
+    )
+
+    async def apply(self, state: RuntimeState, context: RuntimeContext) -> StatePatch:
+        continued = 0
+        for trajectory in state.frontier:
+            if trajectory.last_response is None:
+                continue
+            trajectory.candidate.messages.append(assistant_message(trajectory.last_response.text))
+            continued += 1
+        context.attack.logger.emit(
+            "conversation.continue",
+            candidates=continued,
+        )
+        return StatePatch(frontier=state.frontier, provided=self.provides)
+
+
 class Assess(Component):
     evaluators: list[ResponseEvaluator] = Field(default_factory=list)
     name: str = "assess"
@@ -437,6 +460,10 @@ class Assess(Component):
                 )
                 for evaluation in evaluations
             ]
+            attempt.metadata["trace"] = {
+                **attempt.metadata.get("trace", {}),
+                "trajectory": _trajectory_provenance(trajectory),
+            }
             return attempt
         return None
 
@@ -568,3 +595,23 @@ async def _gather_limited(items: Iterable[Any], limit: int, fn):
             return await fn(item)
 
     return await asyncio.gather(*(run(item) for item in item_list))
+
+
+def _trajectory_provenance(trajectory: CandidateTrajectory) -> dict[str, Any]:
+    return {
+        "id": trajectory.id,
+        "parent_id": trajectory.parent_id,
+        "depth": trajectory.depth,
+        "metadata": trajectory.metadata,
+        "candidate_metadata": trajectory.candidate.metadata,
+        "actor_history": [
+            message.model_dump(mode="json") for message in trajectory.actor_history
+        ],
+        "feedback": list(trajectory.feedback),
+        "constraints": [
+            constraint.model_dump(mode="json") for constraint in trajectory.constraints
+        ],
+        "evaluations": [
+            evaluation.model_dump(mode="json") for evaluation in trajectory.evaluations
+        ],
+    }

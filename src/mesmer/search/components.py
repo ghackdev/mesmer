@@ -23,6 +23,7 @@ from mesmer.core.enums import (
     EvaluationField,
     EvaluatorFailurePolicy,
     EvaluatorFailureReason,
+    ProposalMessageMode,
 )
 from mesmer.core.errors import EvaluatorParseError, StructuredOutputError
 from mesmer.execution.state import Candidate
@@ -67,6 +68,7 @@ def template_context(
     score = str(trajectory.best_score) if trajectory else "0"
     current_prompt = trajectory.latest_text if trajectory else ""
     feedback = trajectory.feedback[-1] if trajectory and trajectory.feedback else ""
+    transcript = _render_transcript(trajectory.candidate.messages) if trajectory else ""
     return {
         "objective": objective.goal,
         "goal": objective.goal,
@@ -74,10 +76,17 @@ def template_context(
         "target_str": target,
         "prompt": current_prompt,
         "current_prompt": current_prompt,
+        "transcript": transcript,
         "response": response,
         "score": score,
         "feedback": feedback or "No previous feedback.",
     }
+
+
+def _render_transcript(messages: list[Message]) -> str:
+    if not messages:
+        return "(empty)"
+    return "\n".join(f"{message.role.value}: {message.content}" for message in messages)
 
 
 class StructuredOutputSpec(MesmerModel):
@@ -133,6 +142,7 @@ class StructuredLLMProposer(Proposer):
     initial_user_prompt_template: str | None = None
     user_prompt_template: str = DEFAULT_PROPOSER_USER_PROMPT
     output: StructuredOutputSpec = Field(default_factory=StructuredOutputSpec)
+    message_mode: ProposalMessageMode = ProposalMessageMode.REPLACE
     history_window: int | None = Field(default=None, ge=1)
     generation_params: dict[str, Any] = Field(default_factory=dict)
     name: str = "structured_llm_proposer"
@@ -184,8 +194,16 @@ class StructuredLLMProposer(Proposer):
                     assistant_message(completion.raw),
                 ]
             )
+            candidate_metadata = dict(metadata)
+            candidate_messages = [user_message(prompt)]
+            if self.message_mode == ProposalMessageMode.APPEND_USER:
+                candidate_metadata = {**trajectory.candidate.metadata, **metadata}
+                candidate_messages = [
+                    *trajectory.candidate.messages,
+                    user_message(prompt),
+                ]
             return CandidateTrajectory(
-                candidate=Candidate(messages=[user_message(prompt)], metadata=dict(metadata)),
+                candidate=Candidate(messages=candidate_messages, metadata=candidate_metadata),
                 depth=trajectory.depth + 1,
                 parent_id=trajectory.id,
                 actor_history=actor_history,

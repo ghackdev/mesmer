@@ -157,7 +157,7 @@ class RuntimeState(MesmerModel):
                 continue
             if attempt.judgements:
                 attempt.judgements[0].status = JudgementStatus.PASS
-                attempt.judgements[0].reason = SUCCESS_TERMINATION_REASON
+                attempt.judgements[0].metadata["stop_reason"] = SUCCESS_TERMINATION_REASON
             else:
                 attempt.judgements.append(
                     Judgement(

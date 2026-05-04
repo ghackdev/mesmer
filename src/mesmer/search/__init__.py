@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from mesmer.core.enums import ProposalMessageMode
 from mesmer.search.actors import ChatActor, LiteLLMChatActor, StructuredCompletion
 from mesmer.search.components import (
     CandidateConstraint,
@@ -27,6 +28,7 @@ from mesmer.search.models import (
 from mesmer.search.technique import (
     Assess,
     Constrain,
+    ContinueConversation,
     Iterate,
     IterativeSearchTechnique,
     ObjectiveSeed,
@@ -46,6 +48,7 @@ __all__ = [
     "Constrain",
     "ConstraintResult",
     "ConstraintScoreSelector",
+    "ContinueConversation",
     "EvaluationResult",
     "FeedbackBuilder",
     "FrontierSelector",
@@ -55,6 +58,7 @@ __all__ = [
     "LLMRatingEvaluator",
     "LiteLLMChatActor",
     "ObjectiveSeed",
+    "ProposalMessageMode",
     "Propose",
     "Proposer",
     "Query",

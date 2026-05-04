@@ -12,6 +12,7 @@ from mesmer import (
     Constrain,
     ConstraintResult,
     ConstraintScoreSelector,
+    ContinueConversation,
     EvaluationResult,
     EvaluatorFailurePolicy,
     Iterate,
@@ -22,6 +23,7 @@ from mesmer import (
     ObjectiveSeed,
     ObjectiveSource,
     Program,
+    ProposalMessageMode,
     Propose,
     Query,
     Refine,
@@ -38,9 +40,11 @@ from mesmer import (
     TemplateFeedback,
     TopKSelector,
 )
-from mesmer.artifacts.messages import user_message
+from mesmer.artifacts.messages import assistant_message, user_message
 from mesmer.core.errors import StructuredOutputError
 from mesmer.execution.state import Candidate
+from mesmer.flows.base import AttackContext
+from mesmer.runtime.component import RuntimeContext
 from mesmer.search.actors import StructuredCompletion
 from mesmer.search.components import CandidateConstraint, Proposer
 from mesmer.targets.base import TargetResponse
@@ -202,6 +206,14 @@ async def test_component_program_runs_in_declared_order() -> None:
     assert result.states[0].metadata["state_history"][0]["before"]["state_type"] == (
         "UnitSearchState"
     )
+    artifact = result.states[0].metadata["reproduction_artifacts"][0]
+    assert artifact["messages"][0]["role"] == "user"
+    assert artifact["messages"][0]["content"] == "valid candidate"
+    assert artifact["messages"][1]["role"] == "assistant"
+    assert artifact["messages"][1]["content"] == MARKER
+    assert artifact["trace"]["trajectory"]["depth"] == 1
+    assert artifact["trace"]["trajectory"]["constraints"][0]["passed"] is True
+    assert artifact["trace"]["trajectory"]["evaluations"][0]["score"] == 10.0
     assert trace.calls == [
         "propose:0:no-feedback",
         "constrain:off topic",
@@ -444,6 +456,42 @@ async def test_llm_label_constraint_uses_structured_label() -> None:
     assert result.reason == "same objective"
 
 
+async def test_continue_conversation_appends_latest_target_response() -> None:
+    trajectory = CandidateTrajectory(
+        candidate=Candidate(messages=[user_message("hello")]),
+        last_response=TargetResponse(text="target reply"),
+        feedback=["previous feedback"],
+        evaluations=[
+            EvaluationResult(
+                name="score",
+                score=2,
+                normalized_score=0.2,
+            )
+        ],
+    )
+    state = RuntimeState.for_objective(Objective("goal"))
+    state.frontier = [trajectory]
+
+    await ContinueConversation().apply(
+        state,
+        RuntimeContext(
+            attack=AttackContext(
+                target=object(),
+                judges=[],
+                budget_tracker=object(),
+            )
+        ),
+    )
+
+    assert [message.role.value for message in trajectory.candidate.messages] == [
+        "user",
+        "assistant",
+    ]
+    assert trajectory.candidate.messages[-1].content == "target reply"
+    assert trajectory.feedback == ["previous feedback"]
+    assert trajectory.evaluations[0].score == 2
+
+
 async def test_structured_llm_proposer_uses_structured_prompt_and_metadata() -> None:
     actor = ScriptedChatActor(
         outputs=['{"prompt":"next prompt","improvement":"tightened objective"}']
@@ -465,6 +513,39 @@ async def test_structured_llm_proposer_uses_structured_prompt_and_metadata() -> 
     assert children[0].metadata["raw_model_output"] == (
         '{"prompt":"next prompt","improvement":"tightened objective"}'
     )
+
+
+async def test_structured_llm_proposer_append_user_preserves_target_transcript() -> None:
+    actor = ScriptedChatActor(outputs=['{"prompt":"next user turn","strategy":"continue"}'])
+    proposer = StructuredLLMProposer(
+        actor=actor,
+        system_prompt_template="Improve {objective}.",
+        output=StructuredOutputSpec(
+            prompt_field="prompt",
+            metadata_fields=("strategy",),
+        ),
+        message_mode=ProposalMessageMode.APPEND_USER,
+    )
+    parent = CandidateTrajectory(
+        candidate=Candidate(
+            messages=[
+                user_message("hi"),
+                assistant_message("hello"),
+            ],
+            metadata={"conversation_id": "unit"},
+        )
+    )
+
+    children = await proposer.propose(Objective("goal"), parent, count=1)
+
+    assert [message.role.value for message in children[0].candidate.messages] == [
+        "user",
+        "assistant",
+        "user",
+    ]
+    assert children[0].candidate.messages[-1].content == "next user turn"
+    assert children[0].candidate.metadata["conversation_id"] == "unit"
+    assert children[0].candidate.metadata["strategy"] == "continue"
 
 
 async def test_structured_llm_proposer_keeps_branch_local_actor_history() -> None:
@@ -622,4 +703,78 @@ async def test_query_uses_policy_max_parallel_and_preserves_attempt_order() -> N
         "first",
         "second",
         "third",
+    ]
+
+
+async def test_iterative_search_can_continue_target_visible_transcript() -> None:
+    actor = ScriptedChatActor(
+        outputs=[
+            '{"prompt":"first turn","strategy":"open"}',
+            '{"prompt":"second turn","strategy":"close"}',
+        ]
+    )
+    target_seen: list[list[str]] = []
+
+    def target(messages, context) -> str:
+        target_seen.append([message.content for message in messages])
+        if len(messages) >= 4 and messages[-2].content == "need more context":
+            return MARKER
+        return "need more context"
+
+    technique = IterativeSearchTechnique(
+        name="conversation_search",
+        program=Program(
+            ObjectiveSeed(),
+            Iterate(
+                policy=SearchPolicy(iterations=2, branching_factor=1, width=1),
+                children=[
+                    Propose(
+                        StructuredLLMProposer(
+                            actor=actor,
+                            system_prompt_template="Plan for {objective}.",
+                            output=StructuredOutputSpec(
+                                prompt_field="prompt",
+                                metadata_fields=("strategy",),
+                            ),
+                            message_mode=ProposalMessageMode.APPEND_USER,
+                        )
+                    ),
+                    Query(),
+                    Assess(MarkerEvaluator(trace=CallTrace())),
+                    ContinueConversation(),
+                    StopWhen(ScoreAtLeast(10)),
+                    Refine(
+                        feedback=TemplateFeedback("observed={response}; score={score}"),
+                        selector=TopKSelector(k=1),
+                    ),
+                ],
+            ),
+        ),
+    )
+    run = Run(
+        objectives=ObjectiveSource.single(
+            Objective(
+                goal="make marker",
+                initial_state="Hi!",
+            )
+        ),
+        attack=technique,
+        target=PythonCallableTarget(fn=target),
+        judges=[],
+    )
+
+    result = await Runner().run(run)
+
+    assert result.succeeded
+    assert target_seen == [
+        ["Hi!", "first turn"],
+        ["Hi!", "first turn", "need more context", "second turn"],
+    ]
+    final_attempt = result.states[0].attempts[-1]
+    assert [message.content for message in final_attempt.candidate.messages] == [
+        "Hi!",
+        "first turn",
+        "need more context",
+        "second turn",
+        MARKER,
     ]
