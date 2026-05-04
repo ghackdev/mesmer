@@ -1,0 +1,26 @@
+# Mesmer Project Preferences
+
+- Prefer composition over inheritance. Keep base classes minimal; compose behavior from small components.
+- This framework is brand new. Prefer clean breaking refactors over compatibility shims unless compatibility is explicitly requested.
+- Do not preserve dead code or legacy compatibility paths by default. Remove obsolete parsers, shims, and branches when replacing behavior.
+- Any LLM-backed component that needs machine-readable output must use provider-enforced structured output and validate it with a schema. Keep free-text LLM calls only for natural-language outputs.
+- Public APIs should be declarative, self-explaining, and optimized for experimentation.
+- Prefer ordered component trees over flat class arguments when order/hierarchy matters.
+- Do not expose imperative `steps` as the normal authoring path; raw execution steps are internal/advanced.
+- Treat user-orchestrated building blocks as components; provider clients, selectors, parsers, targets, judges, and actors are services used by components.
+- Components receive runtime state and return state patches. Avoid hidden orchestration and uncontrolled mutation.
+- Declare state facts for validation, but do not ask components to declare side-effect categories. Components can lie; observe effects at real boundaries instead.
+- Technique examples should declare their algorithm state explicitly with a named `RuntimeState` subclass when state is part of understanding the paper.
+- Keep framework control state internal. Do not force techniques to declare fields like `stopped` or `stop_reason`.
+- Preserve compact state transition history for replay/debugging; logs alone are not enough.
+- TAP-style state should show algorithm data: frontier, iteration/depth, target-call count, best candidate, constraints, responses, evaluations, feedback.
+- Stop conditions are not evaluators. Evaluators produce facts; stop components consume facts.
+- Feedback is not evaluation. Feedback turns observations/evaluations into attacker context for the next iteration.
+- Constraints are not hardcoded pre-target gates. They are components whose order in the tree determines when they run.
+- Extract stable reusable mechanics from papers, not paper-specific prompts, datasets, thresholds, URLs, or naming.
+- One paper example should implement one paper. Do not blend TAP, PAIR, or other techniques inside a single paper example.
+- Paper examples should use real model actors/targets through Mesmer wrappers, not direct LiteLLM calls or fake callable targets unless explicitly marked as tests.
+- Examples should showcase capability and make model/target/system prompt configuration obvious.
+- Use constants or enums for public configuration concepts instead of magic strings.
+- Group code by cohesion and runtime responsibility, not abstract taxonomy.
+- When in doubt, make the framework more flexible for experiment composition, not more vendor-locked around one strategy.

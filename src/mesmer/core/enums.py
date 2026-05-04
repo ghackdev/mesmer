@@ -68,6 +68,49 @@ class DatasetFormat(StrEnum):
     JSONL = "jsonl"
 
 
+class ActorRole(StrEnum):
+    ATTACKER = "attacker"
+    EVALUATOR = "evaluator"
+    TARGET = "target"
+
+
+class BinaryLabel(StrEnum):
+    YES = "YES"
+    NO = "NO"
+
+
+class EvaluationField(StrEnum):
+    SCORE = "score"
+    NORMALIZED_SCORE = "normalized_score"
+    PASSED = "passed"
+
+
+class EvaluatorFailurePolicy(StrEnum):
+    RETRY_THEN_RECORD = "retry_then_record"
+    RAISE = "raise"
+
+
+class EvaluatorFailureReason(StrEnum):
+    MALFORMED_OUTPUT = "malformed_output"
+
+
+class TargetBinding(StrEnum):
+    DEFAULT = "default"
+
+
+class StateFact(StrEnum):
+    OBJECTIVE = "objective"
+    FRONTIER = "frontier"
+    CANDIDATES = "candidates"
+    TARGET_RESPONSES = "target_responses"
+    EVALUATIONS = "evaluations"
+    ATTEMPTS = "attempts"
+    FEEDBACK = "feedback"
+    STOP_SIGNAL = "stop_signal"
+    ARTIFACTS = "artifacts"
+    CONVERSATIONS = "conversations"
+
+
 class JudgementStatus(StrEnum):
     PASS = "pass"
     FAIL = "fail"

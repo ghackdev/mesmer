@@ -4,9 +4,10 @@ from pydantic import Field
 
 from mesmer.core.config import MesmerModel
 from mesmer.core.enums import LogFormat, RunOutcome, RunStatus, SpanName
+from mesmer.core.errors import RuntimeExecutionError
 from mesmer.execution.budgets import BudgetTracker
 from mesmer.execution.run import Run
-from mesmer.execution.state import AttackState
+from mesmer.execution.state import AttackState, Attempt
 from mesmer.flows.base import AttackContext
 from mesmer.telemetry.logger import RunLogger
 from mesmer.telemetry.tracing import start_span
@@ -73,10 +74,20 @@ class Runner(MesmerModel):
                             recorder=run.recorder,
                             logger=logger,
                         )
-                        states.append(await run.attack.execute(objective, context))
+                        state = await run.attack.execute(objective, context)
+                        self._emit_objective_success(
+                            logger,
+                            state,
+                            attack_name=run.attack.name,
+                            target_name=run.target.name,
+                            target_system_prompt=getattr(run.target, "system_prompt", None),
+                        )
+                        states.append(state)
                 result = RunResult(run_id=run.id, status=RunStatus.SUCCEEDED, states=states)
             except Exception as exc:
                 logger.emit("run.error", error=str(exc))
+                if isinstance(exc, RuntimeExecutionError):
+                    states.append(exc.state.attack_state)
                 result = RunResult(
                     run_id=run.id,
                     status=RunStatus.FAILED,
@@ -100,3 +111,71 @@ class Runner(MesmerModel):
         if self.log_format == LogFormat.COMPACT:
             return None
         return 600
+
+    def _emit_objective_success(
+        self,
+        logger: RunLogger,
+        state: AttackState,
+        *,
+        attack_name: str,
+        target_name: str,
+        target_system_prompt: str | None,
+    ) -> None:
+        attempt = next((item for item in state.attempts if item.succeeded), None)
+        if attempt is None:
+            return
+        artifact = _reproduction_artifact(
+            attempt,
+            attack_name=attack_name,
+            target_name=target_name,
+            target_system_prompt=target_system_prompt,
+        )
+        state.metadata["successful_reproduction"] = artifact
+        logger.emit("objective.success", **artifact)
+
+
+def _reproduction_artifact(
+    attempt: Attempt,
+    *,
+    attack_name: str,
+    target_name: str,
+    target_system_prompt: str | None,
+) -> dict[str, object]:
+    messages = [
+        {
+            "role": message.role.value,
+            "content": message.content,
+        }
+        for message in attempt.candidate.messages
+    ]
+    user_messages = [message["content"] for message in messages if message["role"] == "user"]
+    final_prompt = str(user_messages[-1]) if user_messages else ""
+    successful_judgement = next(
+        (judgement for judgement in attempt.judgements if judgement.status.value == "pass"),
+        attempt.judgements[0] if attempt.judgements else None,
+    )
+    score = successful_judgement.score if successful_judgement is not None else None
+    reason = successful_judgement.reason if successful_judgement is not None else ""
+    mode = "single_turn" if len(messages) == 1 else "multi_turn"
+    reproduction = (
+        f"Run the {mode} candidate against target '{target_name}' using attack '{attack_name}'. "
+        "Use the listed target system prompt, then send the listed message sequence in order. "
+        "The final user prompt is the candidate that produced the successful target response."
+    )
+    return {
+        "objective_id": attempt.objective.id,
+        "goal": attempt.objective.goal,
+        "attempt_id": attempt.id,
+        "candidate_id": attempt.candidate.id,
+        "response_id": attempt.response.id,
+        "turn": attempt.turn,
+        "mode": mode,
+        "target": target_name,
+        "target_system_prompt": target_system_prompt,
+        "prompt": final_prompt,
+        "messages": messages,
+        "response": attempt.response.text,
+        "score": score,
+        "reason": reason,
+        "reproduction": reproduction,
+    }

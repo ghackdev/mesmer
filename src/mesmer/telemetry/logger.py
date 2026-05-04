@@ -16,7 +16,19 @@ from mesmer.core.config import MesmerModel
 from mesmer.core.enums import LogFormat
 
 TEXT_FIELD_NAMES = frozenset(
-    {"attacker_message", "goal", "message", "prompt", "reason", "response", "text"}
+    {
+        "attacker_message",
+        "goal",
+        "message",
+        "parser_error",
+        "prompt",
+        "raw",
+        "reason",
+        "reproduction",
+        "response",
+        "target_system_prompt",
+        "text",
+    }
 )
 TEXT_PANEL_EVENTS = frozenset(
     {
@@ -28,6 +40,9 @@ TEXT_PANEL_EVENTS = frozenset(
         "target.call",
         "target.response",
         "judge.result",
+        "objective.success",
+        "search.evaluator.raw",
+        "search.evaluator.parse_error",
         "run.error",
     }
 )
@@ -111,6 +126,8 @@ class RunLogger(MesmerModel):
             "level": self.indent,
             "event": event,
         }
+        if event == "run.finish":
+            payload["target_calls"] = self.target_calls
         payload.update(
             {
                 key: self._compact_value(value)
@@ -359,6 +376,8 @@ class RunLogger(MesmerModel):
             return "cyan"
         if event.startswith("judge."):
             return "yellow"
+        if event.startswith("search.") or event.startswith("program."):
+            return "blue"
         if (
             event.startswith("attacker.")
             or event.startswith("transform.")

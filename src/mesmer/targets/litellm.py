@@ -37,9 +37,11 @@ class LiteLLMTarget(Target):
         choice = response.choices[0]
         text = choice.message.content or ""
         usage = getattr(response, "usage", None)
+        finish_reason = getattr(choice, "finish_reason", None)
         return TargetResponse(
             text=text,
             raw=response.model_dump() if hasattr(response, "model_dump") else response,
+            metadata={"finish_reason": finish_reason},
             latency_ms=(time.perf_counter() - start) * 1000,
             input_tokens=getattr(usage, "prompt_tokens", None),
             output_tokens=getattr(usage, "completion_tokens", None),
