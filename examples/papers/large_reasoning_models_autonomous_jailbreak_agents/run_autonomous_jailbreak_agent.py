@@ -9,36 +9,25 @@ from pydantic import Field
 
 from mesmer import (
     ActorRole,
-    Assess,
-    CandidateTrajectory,
-    ContinueConversation,
     InitialState,
-    Iterate,
-    IterativeSearchTechnique,
-    LiteLLMChatActor,
     LiteLLMTarget,
-    LLMRatingEvaluator,
     LogFormat,
     Objective,
-    ObjectiveSeed,
     ObjectiveSource,
-    Program,
     ProposalMessageMode,
-    Propose,
-    Query,
-    RatingScale,
-    Refine,
     Run,
     Runner,
-    RuntimeState,
-    ScoreAtLeast,
-    SearchPolicy,
-    StopWhen,
-    StructuredLLMProposer,
-    StructuredOutputSpec,
-    TemplateFeedback,
-    TopKSelector,
+    evaluation,
+    feedback,
+    generation,
+    initialization,
+    runtime,
+    selection,
+    stopping,
+    targeting,
+    topology,
 )
+from mesmer.search.models import CandidateTrajectory, RatingScale
 
 DEFAULT_LLM_MODEL = "gemini/gemini-2.5-flash"
 ENV_ATTACKER_MODEL = "MESMER_ATTACKER_MODEL"
@@ -103,7 +92,7 @@ TARGET-VISIBLE TRANSCRIPT:
 {transcript}"""
 
 
-class AutonomousJailbreakAgentState(RuntimeState):
+class AutonomousJailbreakAgentState(runtime.RuntimeState):
     """Algorithm state for the autonomous LRM jailbreak-agent harness."""
 
     frontier: list[CandidateTrajectory] = Field(default_factory=list)
@@ -175,36 +164,36 @@ def build_technique(
     *,
     max_turns: int,
     success_score: int,
-) -> IterativeSearchTechnique:
-    attacker = LiteLLMChatActor(
+) -> topology.Search:
+    attacker = generation.LiteLLMActor(
         model=attacker_model,
         role=ActorRole.ATTACKER,
         name="autonomous_lrm_attacker",
     )
-    evaluator = LiteLLMChatActor(
+    evaluator = generation.LiteLLMActor(
         model=evaluator_model,
         role=ActorRole.EVALUATOR,
         name="autonomous_lrm_evaluator",
     )
-    return IterativeSearchTechnique(
+    return topology.Search(
         name="large_reasoning_model_autonomous_jailbreak_agent",
-        program=Program(
-            ObjectiveSeed(),
-            Iterate(
-                policy=SearchPolicy(
+        program=runtime.Program(
+            initialization.Seed(),
+            topology.Iterate(
+                policy=topology.Policy(
                     iterations=max_turns,
                     branching_factor=1,
                     width=1,
                     max_parallel=1,
                 ),
                 children=[
-                    Propose(
-                        StructuredLLMProposer(
+                    generation.Propose(
+                        generation.StructuredLLM(
                             actor=attacker,
                             system_prompt_template=ATTACKER_SYSTEM_PROMPT,
                             initial_user_prompt_template=ATTACKER_INITIAL_PROMPT,
                             user_prompt_template=ATTACKER_FEEDBACK_PROMPT,
-                            output=StructuredOutputSpec(
+                            output=generation.StructuredOutputSpec(
                                 prompt_field="message",
                                 metadata_fields=("strategy",),
                             ),
@@ -212,20 +201,20 @@ def build_technique(
                             generation_params={"temperature": 0.7},
                         )
                     ),
-                    Query(),
-                    Assess(
-                        LLMRatingEvaluator(
+                    targeting.Query(),
+                    evaluation.Assess(
+                        evaluation.LLMRating(
                             actor=evaluator,
                             system_prompt_template=EVALUATOR_SYSTEM_PROMPT,
                             scale=RatingScale(min=1, max=10),
                             generation_params={"temperature": 0},
                         )
                     ),
-                    ContinueConversation(),
-                    StopWhen(ScoreAtLeast(success_score)),
-                    Refine(
-                        feedback=TemplateFeedback(FEEDBACK_TEMPLATE),
-                        selector=TopKSelector(k=1),
+                    targeting.Continue(),
+                    stopping.StopWhen(stopping.ScoreAtLeast(success_score)),
+                    feedback.Refine(
+                        feedback=feedback.Template(FEEDBACK_TEMPLATE),
+                        selector=selection.TopK(k=1),
                     ),
                 ],
             ),

@@ -15,55 +15,28 @@ from pydantic import Field
 
 from mesmer import (
     ActorRole,
-    Assess,
     DatasetColumnMap,
     DatasetFormat,
-    EmbeddingClassifierSequenceClassifier,
-    GenerateFuzzCandidates,
-    HuggingFaceSequenceClassifier,
-    InitializeSeedPool,
-    Iterate,
-    IterativeSearchTechnique,
-    LexicalSubstitutionMutator,
-    LiteLLMChatActor,
     LiteLLMTarget,
-    LLMRatingEvaluator,
-    LLMTemplateMutator,
     LogFormat,
-    NltkWordNetSynonymProvider,
-    ObjectiveSeed,
     ObjectiveSource,
-    Program,
-    PromptSeedPool,
-    Query,
-    RatingScale,
-    Refine,
     RemoteDatasetSource,
-    ResponseEvaluator,
-    RoundRobinSeedSelector,
     Run,
     Runner,
-    RuntimeState,
-    ScoreAtLeast,
-    SearchPolicy,
-    SeedPoolSource,
-    SentenceTransformersEmbeddingProvider,
-    SklearnMLPEmbeddingClassifier,
-    StopWhen,
-    StructuredLLMSeedPoolSource,
-    TopKSelector,
-    UCBSeedSelector,
-    UpdateSeedRewards,
-    WeightedRandomSeedSelector,
+    evaluation,
+    feedback,
+    generation,
+    initialization,
+    population,
+    runtime,
+    selection,
+    stopping,
+    targeting,
+    topology,
+    variation,
 )
 from mesmer.core.constants import DEFAULT_DATASET_CACHE_DIR
-from mesmer.search.fuzzing import (
-    EXP3SeedSelector,
-    ListSeedPoolSource,
-    RandomSeedSelector,
-    SeedSelectionPolicy,
-    SequenceClassifierEvaluator,
-)
+from mesmer.search.models import RatingScale
 
 GPTFUZZ_COMMIT = "0c26cccc3b19cd5eed91d6cb6912431cf2501762"
 GPTFUZZ_RAW_BASE = f"https://raw.githubusercontent.com/sherdencooper/GPTFuzz/{GPTFUZZ_COMMIT}"
@@ -154,10 +127,10 @@ responsibility framing. Keep exactly one [INSERT PROMPT HERE] placeholder. Do no
 the placeholder."""
 
 
-class JBFuzzState(RuntimeState):
+class JBFuzzState(runtime.RuntimeState):
     """Algorithm state for the JBFuzz fuzzing loop."""
 
-    seed_pool: PromptSeedPool = Field(default_factory=PromptSeedPool)
+    seed_pool: population.Pool = Field(default_factory=population.Pool)
 
 
 def env_int(name: str, default: int) -> int:
@@ -263,26 +236,24 @@ def preflight_optional_dependencies(args: argparse.Namespace) -> None:
     )
 
 
-def build_seed_source(args: argparse.Namespace, attacker_model: str) -> SeedPoolSource:
+def build_seed_source(args: argparse.Namespace, attacker_model: str) -> population.Source:
     if args.seed_mode == "builtin":
-        return ListSeedPoolSource(seeds=JBFUZZ_BUILTIN_SEEDS)
+        return population.ListSource(seeds=JBFUZZ_BUILTIN_SEEDS)
     if args.seed_mode == "csv":
         if args.seed_csv is None:
             raise RuntimeError("--seed-mode csv requires --seed-csv.")
-        from mesmer import CsvSeedPoolSource
 
-        return CsvSeedPoolSource(path=Path(args.seed_csv), text_column=args.seed_column)
+        return population.CsvSource(path=Path(args.seed_csv), text_column=args.seed_column)
     if args.seed_mode == "gptfuzz-remote":
         seed_path = cached_url(args.seed_url)
-        from mesmer import CsvSeedPoolSource
 
-        return CsvSeedPoolSource(path=seed_path, text_column=args.seed_column)
-    attacker = LiteLLMChatActor(
+        return population.CsvSource(path=seed_path, text_column=args.seed_column)
+    attacker = generation.LiteLLMActor(
         model=attacker_model,
         role=ActorRole.ATTACKER,
         name="jbfuzz_seed_generator",
     )
-    return StructuredLLMSeedPoolSource(
+    return population.StructuredLLMSource(
         actor=attacker,
         system_prompt_template=SEED_SYSTEM_PROMPT,
         user_prompt_template=SEED_USER_PROMPT,
@@ -308,28 +279,28 @@ def cached_url(url: str) -> Path:
     raise ValueError(f"Unsupported URL scheme for seed source: {parsed.scheme or '<empty>'}")
 
 
-def build_selector(name: str) -> SeedSelectionPolicy:
+def build_selector(name: str) -> population.SelectionPolicy:
     if name == "weighted-random":
-        return WeightedRandomSeedSelector()
+        return population.WeightedRandom()
     if name == "random":
-        return RandomSeedSelector()
+        return population.Random()
     if name == "round-robin":
-        return RoundRobinSeedSelector()
+        return population.RoundRobin()
     if name == "ucb":
-        return UCBSeedSelector()
+        return population.UCB()
     if name == "exp3":
-        return EXP3SeedSelector()
+        return population.EXP3()
     raise ValueError(f"Unknown selector: {name}")
 
 
-def build_evaluator(args: argparse.Namespace, evaluator_model: str) -> ResponseEvaluator:
+def build_evaluator(args: argparse.Namespace, evaluator_model: str) -> evaluation.Evaluator:
     if args.evaluator == "llm":
-        actor = LiteLLMChatActor(
+        actor = generation.LiteLLMActor(
             model=evaluator_model,
             role=ActorRole.EVALUATOR,
             name="jbfuzz_llm_evaluator",
         )
-        return LLMRatingEvaluator(
+        return evaluation.LLMRating(
             actor=actor,
             system_prompt_template=JUDGE_SYSTEM_PROMPT,
             scale=RatingScale(min=0, max=1),
@@ -337,8 +308,8 @@ def build_evaluator(args: argparse.Namespace, evaluator_model: str) -> ResponseE
             name="jbfuzz_llm_rating_evaluator",
         )
     if args.evaluator == "hf-sequence-classifier":
-        return SequenceClassifierEvaluator(
-            classifier=HuggingFaceSequenceClassifier(
+        return evaluation.SequenceClassification(
+            classifier=evaluation.HuggingFaceSequenceClassifier(
                 model_path=args.hf_classifier_model,
                 device=args.classifier_device,
             ),
@@ -350,12 +321,12 @@ def build_evaluator(args: argparse.Namespace, evaluator_model: str) -> ResponseE
         label_column=args.labeled_label_column,
         limit=args.train_rows,
     )
-    return SequenceClassifierEvaluator(
-        classifier=EmbeddingClassifierSequenceClassifier(
-            embedding_provider=SentenceTransformersEmbeddingProvider(
+    return evaluation.SequenceClassification(
+        classifier=evaluation.EmbeddingSequenceClassifier(
+            embedding_provider=evaluation.SentenceTransformersEmbeddings(
                 model_name=args.embedding_model,
             ),
-            classifier=SklearnMLPEmbeddingClassifier(
+            classifier=evaluation.SklearnMLP(
                 hidden_layer_sizes=args.mlp_hidden_sizes,
             ),
             train_texts=tuple(texts),
@@ -367,19 +338,19 @@ def build_evaluator(args: argparse.Namespace, evaluator_model: str) -> ResponseE
 
 def build_mutator(args: argparse.Namespace, attacker_model: str):
     if args.mutator == "lexical":
-        return LexicalSubstitutionMutator(
-            provider=NltkWordNetSynonymProvider(
+        return variation.LexicalSubstitution(
+            provider=variation.WordNetSynonyms(
                 data_dir=Path(args.nltk_data_dir),
                 auto_download=not args.no_auto_download_nltk_data,
             ),
             replacement_probability=args.mutation_probability,
         )
-    actor = LiteLLMChatActor(
+    actor = generation.LiteLLMActor(
         model=attacker_model,
         role=ActorRole.ATTACKER,
         name="jbfuzz_template_mutator",
     )
-    return LLMTemplateMutator(
+    return variation.LLMTemplate(
         actor=actor,
         system_prompt_template=MUTATOR_SYSTEM_PROMPT,
         user_prompt_template=MUTATOR_USER_PROMPT,
@@ -414,37 +385,37 @@ def build_attack_program(
     *,
     attacker_model: str,
     evaluator_model: str,
-) -> IterativeSearchTechnique:
+) -> topology.Search:
     evaluator = build_evaluator(args, evaluator_model)
-    return IterativeSearchTechnique(
+    return topology.Search(
         name="jbfuzz",
-        program=Program(
-            InitializeSeedPool(
+        program=runtime.Program(
+            population.Initialize(
                 source=build_seed_source(args, attacker_model),
                 count=args.seed_count,
             ),
-            ObjectiveSeed(),
-            Iterate(
-                policy=SearchPolicy(
+            initialization.Seed(),
+            topology.Iterate(
+                policy=topology.Policy(
                     iterations=args.iterations,
                     branching_factor=args.branching_factor,
                     width=args.branching_factor,
                     max_parallel=args.max_parallel,
                 ),
                 children=[
-                    GenerateFuzzCandidates(
+                    population.Generate(
                         selector=build_selector(args.selector),
                         mutator=build_mutator(args, attacker_model),
                         rng_seed=args.rng_seed,
                     ),
                     # Target execution is intentionally between mutation and evaluation,
                     # matching the fuzzing cycle in Algorithm 1.
-                    Query(),
-                    Assess(evaluator),
-                    UpdateSeedRewards(success_score=args.success_score),
-                    StopWhen(ScoreAtLeast(args.success_score)),
+                    targeting.Query(),
+                    evaluation.Assess(evaluator),
+                    population.UpdateRewards(success_score=args.success_score),
+                    stopping.StopWhen(stopping.ScoreAtLeast(args.success_score)),
                     # Retain the strongest candidates if stop_on_success is disabled.
-                    Refine(selector=TopKSelector(k=args.branching_factor)),
+                    feedback.Refine(selector=selection.TopK(k=args.branching_factor)),
                 ],
             ),
             state=JBFuzzState,
@@ -538,7 +509,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-auto-download-nltk-data",
         action="store_true",
-        help="Disable automatic NLTK data downloads in NltkWordNetSynonymProvider.",
+        help="Disable automatic NLTK data downloads in variation.WordNetSynonyms.",
     )
     parser.add_argument("--success-score", type=float, default=DEFAULT_SUCCESS_SCORE)
     parser.add_argument("--rng-seed", type=int, default=0)

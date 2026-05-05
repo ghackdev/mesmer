@@ -375,18 +375,6 @@ class Assess(Component):
                 passed=evaluation.passed,
                 reason=evaluation.reason,
             )
-        if context.attack.judges and trajectory.last_response is not None:
-            for judge in context.attack.judges:
-                judgement = await judge.judge(state.objective, trajectory.last_response)
-                evaluations.append(
-                    EvaluationResult(
-                        name=judge.name,
-                        score=judgement.score,
-                        normalized_score=judgement.score,
-                        passed=judgement.status == JudgementStatus.PASS,
-                        reason=judgement.reason,
-                    )
-                )
         return evaluations
 
     def _log_evaluator_diagnostics(

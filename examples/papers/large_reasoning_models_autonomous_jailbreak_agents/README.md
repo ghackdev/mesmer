@@ -45,9 +45,9 @@ uv run python examples/papers/large_reasoning_models_autonomous_jailbreak_agents
 
 ## New Generic Primitives Used
 
-`ProposalMessageMode.APPEND_USER` lets `StructuredLLMProposer` append the generated user
+`ProposalMessageMode.APPEND_USER` lets `generation.StructuredLLM` append the generated user
 message to the parent trajectory transcript instead of replacing the candidate with a
 single-message prompt.
 
-`ContinueConversation` appends each target response back into the trajectory as an
+`targeting.Continue` appends each target response back into the trajectory as an
 assistant message, so the next target call sees the full target-visible transcript.

@@ -5,9 +5,10 @@ from types import SimpleNamespace
 import litellm
 from pydantic import BaseModel
 
-from mesmer import LiteLLMChatActor, LLMCandidateExpander, Objective
+from mesmer import Objective, generation
 from mesmer.artifacts.messages import user_message
 from mesmer.execution.state import Candidate
+from mesmer.search.models import CandidateTrajectory
 
 
 class UnitStructuredOutput(BaseModel):
@@ -26,7 +27,7 @@ async def test_litellm_chat_actor_complete_structured_passes_response_format(
 
     monkeypatch.setattr(litellm, "acompletion", fake_completion)
 
-    actor = LiteLLMChatActor(model="openai/test-model")
+    actor = generation.LiteLLMActor(model="openai/test-model")
     completion = await actor.complete_structured(
         [user_message("return json")],
         UnitStructuredOutput,
@@ -46,7 +47,7 @@ async def test_litellm_chat_actor_complete_structured_rejects_malformed_json(
 
     monkeypatch.setattr(litellm, "acompletion", fake_completion)
 
-    actor = LiteLLMChatActor(model="openai/test-model")
+    actor = generation.LiteLLMActor(model="openai/test-model")
     try:
         await actor.complete_structured([user_message("return json")], UnitStructuredOutput)
     except Exception as exc:
@@ -56,27 +57,28 @@ async def test_litellm_chat_actor_complete_structured_rejects_malformed_json(
         raise AssertionError("malformed structured output should raise")
 
 
-async def test_llm_candidate_expander_uses_attacker_model(monkeypatch) -> None:
+async def test_structured_llm_generator_uses_actor_model(monkeypatch) -> None:
     calls = []
 
     async def fake_completion(**kwargs):
         calls.append(kwargs)
-        message = SimpleNamespace(content='{"candidates":["candidate one","candidate two"]}')
+        message = SimpleNamespace(content='{"prompt":"candidate one"}')
         return SimpleNamespace(choices=[SimpleNamespace(message=message)])
 
     monkeypatch.setattr(litellm, "acompletion", fake_completion)
 
-    expander = LLMCandidateExpander(model="openai/test-attacker", n=2)
-    candidates = await expander.expand(
+    generator = generation.StructuredLLM(
+        actor=generation.LiteLLMActor(model="openai/test-attacker"),
+        system_prompt_template="Generate a candidate for {objective}.",
+        output=generation.StructuredOutputSpec(prompt_field="prompt", metadata_fields=()),
+    )
+    candidates = await generator.propose(
         Objective("Make the target say MESMER_ACCEPTED"),
-        Candidate(messages=[user_message("initial")]),
-        branching_factor=2,
+        CandidateTrajectory(candidate=Candidate(messages=[user_message("initial")])),
+        count=1,
     )
 
     assert calls[0]["model"] == "openai/test-attacker"
-    assert calls[0]["response_format"].__name__ == "CandidateExpansionOutput"
-    assert [candidate.messages[-1].content for candidate in candidates] == [
-        "candidate one",
-        "candidate two",
-    ]
-    assert candidates[0].metadata["attacker_model"] == "openai/test-attacker"
+    assert calls[0]["response_format"].__name__ == "StructuredProposalOutput"
+    assert candidates[0].latest_text == "candidate one"
+    assert candidates[0].metadata["actor"] == "litellm_actor"

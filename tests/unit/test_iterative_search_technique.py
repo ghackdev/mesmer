@@ -6,54 +6,37 @@ import json
 from pydantic import Field
 
 from mesmer import (
-    Assess,
-    CandidateTrajectory,
-    ChatActor,
-    Constrain,
-    ConstraintResult,
-    ConstraintScoreSelector,
-    ContinueConversation,
-    EvaluationResult,
     EvaluatorFailurePolicy,
-    Iterate,
-    IterativeSearchTechnique,
-    LLMLabelConstraint,
-    LLMRatingEvaluator,
     Objective,
-    ObjectiveSeed,
     ObjectiveSource,
-    Program,
     ProposalMessageMode,
-    Propose,
-    Query,
-    Refine,
-    ResponseEvaluator,
     Run,
     Runner,
-    RuntimeState,
-    ScoreAtLeast,
-    SearchPolicy,
-    SelectFrontier,
-    StopWhen,
-    StructuredLLMProposer,
-    StructuredOutputSpec,
-    TemplateFeedback,
-    TopKSelector,
+    constraints,
+    evaluation,
+    feedback,
+    generation,
+    initialization,
+    runtime,
+    selection,
+    stopping,
+    targeting,
+    topology,
 )
 from mesmer.artifacts.messages import assistant_message, user_message
 from mesmer.core.errors import StructuredOutputError
 from mesmer.execution.state import Candidate
-from mesmer.flows.base import AttackContext
 from mesmer.runtime.component import RuntimeContext
 from mesmer.search.actors import StructuredCompletion
-from mesmer.search.components import CandidateConstraint, Proposer
+from mesmer.search.models import CandidateTrajectory, ConstraintResult, EvaluationResult
 from mesmer.targets.base import TargetResponse
 from mesmer.targets.callable import PythonCallableTarget
+from mesmer.topology import AttackContext
 
 MARKER = "MESMER_ACCEPTED"
 
 
-class UnitSearchState(RuntimeState):
+class UnitSearchState(runtime.RuntimeState):
     frontier: list[CandidateTrajectory] = Field(default_factory=list)
     best: CandidateTrajectory | None = None
 
@@ -63,7 +46,7 @@ class CallTrace:
         self.calls: list[str] = []
 
 
-class ScriptedProposer(Proposer):
+class ScriptedProposer(generation.Generator):
     prompts: list[str]
     trace: CallTrace
     name: str = "scripted_proposer"
@@ -88,7 +71,7 @@ class ScriptedProposer(Proposer):
         ]
 
 
-class KeywordConstraint(CandidateConstraint):
+class KeywordConstraint(constraints.Constraint):
     keyword: str
     trace: CallTrace
     name: str = "keyword_constraint"
@@ -102,7 +85,7 @@ class KeywordConstraint(CandidateConstraint):
         return ConstraintResult(passed=self.keyword in trajectory.latest_text)
 
 
-class MarkerEvaluator(ResponseEvaluator):
+class MarkerEvaluator(evaluation.Evaluator):
     trace: CallTrace
     name: str = "marker_evaluator"
 
@@ -122,7 +105,7 @@ class MarkerEvaluator(ResponseEvaluator):
         )
 
 
-class ScriptedChatActor(ChatActor):
+class ScriptedChatActor(generation.Actor):
     outputs: list[str]
     calls: int = 0
     message_contents: list[list[str]] = Field(default_factory=list)
@@ -153,26 +136,26 @@ async def test_component_program_runs_in_declared_order() -> None:
         trace.calls.append(f"query:{messages[-1].content}")
         return MARKER
 
-    technique = IterativeSearchTechnique(
+    technique = topology.Search(
         name="unit_search",
-        program=Program(
-            ObjectiveSeed(),
-            Iterate(
-                policy=SearchPolicy(iterations=2, branching_factor=2, width=1),
+        program=runtime.Program(
+            initialization.Seed(),
+            topology.Iterate(
+                policy=topology.Policy(iterations=2, branching_factor=2, width=1),
                 children=[
-                    Propose(
+                    generation.Propose(
                         ScriptedProposer(
                             prompts=["off topic", "valid candidate"],
                             trace=trace,
                         ),
                     ),
-                    Constrain(KeywordConstraint(keyword="valid", trace=trace)),
-                    Query(),
-                    Assess(MarkerEvaluator(trace=trace)),
-                    StopWhen(ScoreAtLeast(10)),
-                    Refine(
-                        feedback=TemplateFeedback("score={score}; response={response}"),
-                        selector=TopKSelector(k=1),
+                    constraints.Filter(KeywordConstraint(keyword="valid", trace=trace)),
+                    targeting.Query(),
+                    evaluation.Assess(MarkerEvaluator(trace=trace)),
+                    stopping.StopWhen(stopping.ScoreAtLeast(10)),
+                    feedback.Refine(
+                        feedback=feedback.Template("score={score}; response={response}"),
+                        selector=selection.TopK(k=1),
                     ),
                 ],
             ),
@@ -198,7 +181,7 @@ async def test_component_program_runs_in_declared_order() -> None:
     ] == [
         "objective_seed",
         "propose",
-        "constrain",
+        "filter",
         "query",
         "assess",
         "stop_when",
@@ -225,15 +208,15 @@ async def test_component_program_runs_in_declared_order() -> None:
 
 
 async def test_component_program_rejects_invalid_order() -> None:
-    technique = IterativeSearchTechnique(
+    technique = topology.Search(
         name="invalid_search",
-        program=Program(
-            ObjectiveSeed(),
-            Iterate(
-                policy=SearchPolicy(iterations=1, branching_factor=1, width=1),
+        program=runtime.Program(
+            initialization.Seed(),
+            topology.Iterate(
+                policy=topology.Policy(iterations=1, branching_factor=1, width=1),
                 children=[
-                    Assess(MarkerEvaluator(trace=CallTrace())),
-                    Query(),
+                    evaluation.Assess(MarkerEvaluator(trace=CallTrace())),
+                    targeting.Query(),
                 ],
             ),
         ),
@@ -257,25 +240,25 @@ async def test_component_program_feedback_reaches_next_proposal() -> None:
     def target(messages, context) -> str:
         return "try again"
 
-    technique = IterativeSearchTechnique(
+    technique = topology.Search(
         name="feedback_search",
-        program=Program(
-            ObjectiveSeed(),
-            Iterate(
-                policy=SearchPolicy(
+        program=runtime.Program(
+            initialization.Seed(),
+            topology.Iterate(
+                policy=topology.Policy(
                     iterations=2,
                     branching_factor=1,
                     width=1,
                     stop_on_success=False,
                 ),
                 children=[
-                    Propose(ScriptedProposer(prompts=["valid prompt"], trace=trace)),
-                    Query(),
-                    Assess(MarkerEvaluator(trace=trace)),
-                    StopWhen(ScoreAtLeast(10)),
-                    Refine(
-                        feedback=TemplateFeedback("observed={response}; score={score}"),
-                        selector=TopKSelector(k=1),
+                    generation.Propose(ScriptedProposer(prompts=["valid prompt"], trace=trace)),
+                    targeting.Query(),
+                    evaluation.Assess(MarkerEvaluator(trace=trace)),
+                    stopping.StopWhen(stopping.ScoreAtLeast(10)),
+                    feedback.Refine(
+                        feedback=feedback.Template("observed={response}; score={score}"),
+                        selector=selection.TopK(k=1),
                     ),
                 ],
             ),
@@ -297,7 +280,7 @@ async def test_component_program_feedback_reaches_next_proposal() -> None:
 
 
 async def test_llm_rating_evaluator_uses_structured_rating() -> None:
-    evaluator = LLMRatingEvaluator(
+    evaluator = evaluation.LLMRating(
         actor=ScriptedChatActor(outputs=['{"rating":10,"reason":"complete"}']),
         system_prompt_template="Rate the response.",
     )
@@ -314,7 +297,7 @@ async def test_llm_rating_evaluator_uses_structured_rating() -> None:
 
 
 async def test_llm_rating_evaluator_accepts_numeric_string_rating() -> None:
-    evaluator = LLMRatingEvaluator(
+    evaluator = evaluation.LLMRating(
         actor=ScriptedChatActor(outputs=['{"rating":"1","reason":"low"}']),
         system_prompt_template="Rate the response.",
     )
@@ -332,7 +315,7 @@ async def test_llm_rating_evaluator_accepts_numeric_string_rating() -> None:
 
 async def test_llm_rating_evaluator_retries_malformed_output_once() -> None:
     actor = ScriptedChatActor(outputs=["not json", '{"rating":7,"reason":"partial"}'])
-    evaluator = LLMRatingEvaluator(
+    evaluator = evaluation.LLMRating(
         actor=actor,
         system_prompt_template="Rate the response.",
     )
@@ -351,7 +334,7 @@ async def test_llm_rating_evaluator_retries_malformed_output_once() -> None:
 
 async def test_llm_rating_evaluator_records_min_score_after_retry_exhaustion() -> None:
     actor = ScriptedChatActor(outputs=["not a rating", "still not a rating"])
-    evaluator = LLMRatingEvaluator(
+    evaluator = evaluation.LLMRating(
         actor=actor,
         system_prompt_template="Rate the response.",
         failure_policy=EvaluatorFailurePolicy.RETRY_THEN_RECORD,
@@ -372,7 +355,7 @@ async def test_llm_rating_evaluator_records_min_score_after_retry_exhaustion() -
 
 async def test_llm_rating_evaluator_raises_by_default_after_retry_exhaustion() -> None:
     actor = ScriptedChatActor(outputs=["not a rating", "still not a rating"])
-    evaluator = LLMRatingEvaluator(
+    evaluator = evaluation.LLMRating(
         actor=actor,
         system_prompt_template="Rate the response.",
     )
@@ -392,16 +375,16 @@ async def test_llm_rating_evaluator_raises_by_default_after_retry_exhaustion() -
 async def test_tap_style_evaluator_parse_failure_keeps_attempt_and_execution_failed(
     capsys,
 ) -> None:
-    technique = IterativeSearchTechnique(
+    technique = topology.Search(
         name="tap_style",
-        program=Program(
-            ObjectiveSeed(),
-            Iterate(
-                policy=SearchPolicy(iterations=1, branching_factor=1, width=1),
+        program=runtime.Program(
+            initialization.Seed(),
+            topology.Iterate(
+                policy=topology.Policy(iterations=1, branching_factor=1, width=1),
                 children=[
-                    Query(),
-                    Assess(
-                        LLMRatingEvaluator(
+                    targeting.Query(),
+                    evaluation.Assess(
+                        evaluation.LLMRating(
                             actor=ScriptedChatActor(outputs=["not a rating", "still wrong"]),
                             system_prompt_template="Rate the response.",
                         )
@@ -442,7 +425,7 @@ async def test_tap_style_evaluator_parse_failure_keeps_attempt_and_execution_fai
 
 
 async def test_llm_label_constraint_uses_structured_label() -> None:
-    constraint = LLMLabelConstraint(
+    constraint = constraints.LLMLabel(
         actor=ScriptedChatActor(outputs=['{"label":"YES","reason":"same objective"}']),
         system_prompt_template="Check prompt.",
     )
@@ -469,10 +452,10 @@ async def test_continue_conversation_appends_latest_target_response() -> None:
             )
         ],
     )
-    state = RuntimeState.for_objective(Objective("goal"))
+    state = runtime.RuntimeState.for_objective(Objective("goal"))
     state.frontier = [trajectory]
 
-    await ContinueConversation().apply(
+    await targeting.Continue().apply(
         state,
         RuntimeContext(
             attack=AttackContext(
@@ -496,10 +479,10 @@ async def test_structured_llm_proposer_uses_structured_prompt_and_metadata() -> 
     actor = ScriptedChatActor(
         outputs=['{"prompt":"next prompt","improvement":"tightened objective"}']
     )
-    proposer = StructuredLLMProposer(
+    proposer = generation.StructuredLLM(
         actor=actor,
         system_prompt_template="Improve {objective}.",
-        output=StructuredOutputSpec(
+        output=generation.StructuredOutputSpec(
             prompt_field="prompt",
             metadata_fields=("improvement",),
         ),
@@ -517,10 +500,10 @@ async def test_structured_llm_proposer_uses_structured_prompt_and_metadata() -> 
 
 async def test_structured_llm_proposer_append_user_preserves_target_transcript() -> None:
     actor = ScriptedChatActor(outputs=['{"prompt":"next user turn","strategy":"continue"}'])
-    proposer = StructuredLLMProposer(
+    proposer = generation.StructuredLLM(
         actor=actor,
         system_prompt_template="Improve {objective}.",
-        output=StructuredOutputSpec(
+        output=generation.StructuredOutputSpec(
             prompt_field="prompt",
             metadata_fields=("strategy",),
         ),
@@ -556,7 +539,7 @@ async def test_structured_llm_proposer_keeps_branch_local_actor_history() -> Non
             '{"prompt":"branch one refined","improvement":"third"}',
         ]
     )
-    proposer = StructuredLLMProposer(
+    proposer = generation.StructuredLLM(
         actor=actor,
         system_prompt_template="System {objective}.",
         initial_user_prompt_template="INIT {objective} -> {target_str}",
@@ -602,19 +585,19 @@ async def test_select_frontier_prunes_by_constraint_before_target_calls() -> Non
         trace.calls.append(f"query:{messages[-1].content}")
         return "target response"
 
-    technique = IterativeSearchTechnique(
+    technique = topology.Search(
         name="phase_one_prune",
-        program=Program(
-            ObjectiveSeed(),
-            Iterate(
-                policy=SearchPolicy(
+        program=runtime.Program(
+            initialization.Seed(),
+            topology.Iterate(
+                policy=topology.Policy(
                     iterations=1,
                     branching_factor=4,
                     width=2,
                     stop_on_success=False,
                 ),
                 children=[
-                    Propose(
+                    generation.Propose(
                         ScriptedProposer(
                             prompts=[
                                 "valid one",
@@ -625,14 +608,14 @@ async def test_select_frontier_prunes_by_constraint_before_target_calls() -> Non
                             trace=trace,
                         )
                     ),
-                    Constrain(KeywordConstraint(keyword="valid", trace=trace)),
-                    SelectFrontier(
-                        ConstraintScoreSelector(
+                    constraints.Filter(KeywordConstraint(keyword="valid", trace=trace)),
+                    selection.Select(
+                        selection.ConstraintScore(
                             constraint="keyword_constraint",
                             k=2,
                         )
                     ),
-                    Query(),
+                    targeting.Query(),
                 ],
             ),
         ),
@@ -665,12 +648,12 @@ async def test_query_uses_policy_max_parallel_and_preserves_attempt_order() -> N
         active -= 1
         return messages[-1].content
 
-    technique = IterativeSearchTechnique(
+    technique = topology.Search(
         name="parallel_query",
-        program=Program(
-            ObjectiveSeed(),
-            Iterate(
-                policy=SearchPolicy(
+        program=runtime.Program(
+            initialization.Seed(),
+            topology.Iterate(
+                policy=topology.Policy(
                     iterations=1,
                     branching_factor=3,
                     width=3,
@@ -678,13 +661,13 @@ async def test_query_uses_policy_max_parallel_and_preserves_attempt_order() -> N
                     stop_on_success=False,
                 ),
                 children=[
-                    Propose(
+                    generation.Propose(
                         ScriptedProposer(
                             prompts=["first", "second", "third"],
                             trace=CallTrace(),
                         )
                     ),
-                    Query(),
+                    targeting.Query(),
                 ],
             ),
         ),
@@ -721,31 +704,31 @@ async def test_iterative_search_can_continue_target_visible_transcript() -> None
             return MARKER
         return "need more context"
 
-    technique = IterativeSearchTechnique(
+    technique = topology.Search(
         name="conversation_search",
-        program=Program(
-            ObjectiveSeed(),
-            Iterate(
-                policy=SearchPolicy(iterations=2, branching_factor=1, width=1),
+        program=runtime.Program(
+            initialization.Seed(),
+            topology.Iterate(
+                policy=topology.Policy(iterations=2, branching_factor=1, width=1),
                 children=[
-                    Propose(
-                        StructuredLLMProposer(
+                    generation.Propose(
+                        generation.StructuredLLM(
                             actor=actor,
                             system_prompt_template="Plan for {objective}.",
-                            output=StructuredOutputSpec(
+                            output=generation.StructuredOutputSpec(
                                 prompt_field="prompt",
                                 metadata_fields=("strategy",),
                             ),
                             message_mode=ProposalMessageMode.APPEND_USER,
                         )
                     ),
-                    Query(),
-                    Assess(MarkerEvaluator(trace=CallTrace())),
-                    ContinueConversation(),
-                    StopWhen(ScoreAtLeast(10)),
-                    Refine(
-                        feedback=TemplateFeedback("observed={response}; score={score}"),
-                        selector=TopKSelector(k=1),
+                    targeting.Query(),
+                    evaluation.Assess(MarkerEvaluator(trace=CallTrace())),
+                    targeting.Continue(),
+                    stopping.StopWhen(stopping.ScoreAtLeast(10)),
+                    feedback.Refine(
+                        feedback=feedback.Template("observed={response}; score={score}"),
+                        selector=selection.TopK(k=1),
                     ),
                 ],
             ),

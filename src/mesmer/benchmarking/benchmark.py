@@ -7,19 +7,19 @@ from mesmer.core.config import MesmerModel
 from mesmer.core.constants import DEFAULT_REPETITIONS
 from mesmer.core.ids import new_id
 from mesmer.execution.budgets import Budget
-from mesmer.flows.base import Flow
 from mesmer.judging.base import Judge
 from mesmer.objectives.sources import ObjectiveSource
 from mesmer.targets.base import Target
+from mesmer.topology import Technique
 
 
 class Benchmark(MesmerModel):
     id: str = Field(default_factory=lambda: new_id("benchmark"))
     name: str
     objectives: ObjectiveSource
-    attacks: list[Flow]
+    attacks: list[Technique]
     targets: list[Target]
-    judges: list[Judge]
+    judges: list[Judge] = Field(default_factory=list)
     metrics: list[Metric] = Field(default_factory=lambda: [AttackSuccessRate()])
     budget: Budget = Field(default_factory=Budget)
     repetitions: int = DEFAULT_REPETITIONS

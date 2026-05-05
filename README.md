@@ -2,11 +2,12 @@
 
 Mesmer is a Python-first framework for composing LLM red-team, safety evaluation, and benchmarking workflows from small reusable primitives.
 
-The v1 architecture separates reusable attack flows from workload binding:
+The v1 architecture separates declarative technique topology from workload binding:
 
 ```text
 Primitive layer:
-ObjectiveSource, Flow, Transform, Expander, Pruner, Planner, Memory, Target, Judge, Recorder
+runtime.Program plus taxonomy packages such as topology, generation, selection,
+targeting, evaluation, stopping, feedback, population, variation
 
 Execution layer:
 Run, Runner
@@ -15,7 +16,9 @@ Evaluation layer:
 Benchmark, BenchmarkRunner, Metric, Baseline, Report
 ```
 
-`Flow` is the executable attack topology. `Run` binds objectives, flow, target, judge, recorder, and budgets. `Benchmark` expands many runs and aggregates results.
+`topology.Search` is the executable technique topology. `Run` binds objectives, a
+technique, target, recorder, and budgets. `Benchmark` expands many runs and
+aggregates results.
 
 ## Install
 
@@ -28,7 +31,8 @@ uv sync
 ```python
 import asyncio
 
-from mesmer import Contains, LiteLLMTarget, ObjectiveSource, Run, Runner, SingleTurnFlow
+from mesmer import evaluation, initialization, runtime, targeting, topology
+from mesmer import LiteLLMTarget, ObjectiveSource, Run, Runner
 
 
 async def main() -> None:
@@ -41,9 +45,15 @@ async def main() -> None:
     )
     run = Run(
         objectives=ObjectiveSource.single("Get the release assistant to emit RELEASE_READY."),
-        attack=SingleTurnFlow(),
+        attack=topology.Search(
+            name="release_check",
+            program=runtime.Program(
+                initialization.Seed(),
+                targeting.Query(),
+                evaluation.Assess(evaluator=evaluation.Contains(text="RELEASE_READY")),
+            ),
+        ),
         target=target,
-        judge=Contains(text="RELEASE_READY"),
     )
     result = await Runner().run(run)
     print(result.succeeded)

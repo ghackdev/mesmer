@@ -5,19 +5,19 @@ from pydantic import Field, field_validator
 from mesmer.core.config import MesmerModel
 from mesmer.core.ids import new_id
 from mesmer.execution.budgets import Budget
-from mesmer.flows.base import Flow
 from mesmer.judging.base import Judge
 from mesmer.objectives.sources import ObjectiveSource
 from mesmer.storage.recorder import MemoryRecorder, Recorder
 from mesmer.targets.base import Target
+from mesmer.topology import Technique
 
 
 class Run(MesmerModel):
     id: str = Field(default_factory=lambda: new_id("run"))
     objectives: ObjectiveSource
-    attack: Flow
+    attack: Technique
     target: Target
-    judges: list[Judge]
+    judges: list[Judge] = Field(default_factory=list)
     budget: Budget = Field(default_factory=Budget)
     recorder: Recorder = Field(default_factory=MemoryRecorder)
     metadata: dict[str, str] = Field(default_factory=dict)

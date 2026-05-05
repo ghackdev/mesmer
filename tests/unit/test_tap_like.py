@@ -1,21 +1,20 @@
 from __future__ import annotations
 
 from mesmer import (
-    AttackGraph,
-    CallTarget,
-    Contains,
-    ExpandCandidates,
     InitialState,
-    KeywordOverlapPruner,
     Objective,
     ObjectiveSource,
-    PruneCandidates,
     PythonCallableTarget,
-    Repeat,
     Run,
     Runner,
-    SeedCandidates,
-    TemplateCandidateExpander,
+    evaluation,
+    generation,
+    initialization,
+    runtime,
+    selection,
+    stopping,
+    targeting,
+    topology,
 )
 
 MARKER = "MESMER_ACCEPTED"
@@ -35,25 +34,23 @@ async def test_tap_like_attacker_expands_prunes_and_succeeds() -> None:
     )
     run = Run(
         objectives=ObjectiveSource.single(objective),
-        attacker=AttackGraph(
+        attack=topology.Search(
             name="tap_like_from_paper",
-            steps=[
-                SeedCandidates(),
-                Repeat(
-                    times=2,
-                    steps=[
-                        ExpandCandidates(
-                            expander=TemplateCandidateExpander(),
-                            branching_factor=3,
-                        ),
-                        PruneCandidates(pruner=KeywordOverlapPruner(), width=2),
-                        CallTarget(metadata={"paper_family": "tap"}),
+            program=runtime.Program(
+                initialization.Seed(),
+                topology.Iterate(
+                    policy=topology.Policy(iterations=2, branching=3, width=2),
+                    children=[
+                        generation.Propose(proposer=generation.Template()),
+                        selection.Select(selector=selection.KeywordOverlap()),
+                        targeting.Query(),
+                        evaluation.Assess(evaluator=evaluation.Contains(text=MARKER)),
+                        stopping.StopWhen(condition=stopping.ScoreAtLeast(1)),
                     ],
                 ),
-            ],
+            ),
         ),
         target=PythonCallableTarget(fn=guarded_marker_target),
-        judge=Contains(text=MARKER),
     )
 
     result = await Runner().run(run)
@@ -61,5 +58,5 @@ async def test_tap_like_attacker_expands_prunes_and_succeeds() -> None:
     assert result.succeeded
     assert result.attempts_count >= 1
     first_attempt = result.states[0].attempts[0]
-    assert first_attempt.metadata["paper_family"] == "tap"
-    assert first_attempt.candidate.metadata["pruner"] == "keyword_overlap"
+    assert first_attempt.metadata["trace"]["trajectory"]["depth"] == 1
+    assert first_attempt.candidate.metadata["selector"] == "keyword_overlap"

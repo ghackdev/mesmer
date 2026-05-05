@@ -36,3 +36,17 @@
 - Use constants or enums for public configuration concepts instead of magic strings.
 - Group code by cohesion and runtime responsibility, not abstract taxonomy.
 - When in doubt, make the framework more flexible for experiment composition, not more vendor-locked around one strategy.
+- The accepted primitive taxonomy is: runtime substrate, topology components, initialization components, generation services/components, variation services, constraint components, selection services/components, target components, evaluation components/services, stopping components, feedback/learning components, data sources, and observability/replay.
+- `Program`, `Component`, `ContainerComponent`, `RuntimeState`, `StatePatch`, `StateFact`, and `topology.Search` are the canonical execution substrate for new paper techniques.
+- New algorithm topology should normally be expressed as ordered components inside `Program`. Do not add direct `Flow` subclasses, graph step systems, or one-off tree/agent loops for paper work unless the component runtime cannot express the required control shape.
+- `Iterate` is the default reusable loop topology. Legacy direct-flow surfaces have been removed from the public API and should not be restored as the normal pattern for new paper examples.
+- Candidate generation should use `generation.Propose` plus a `Proposer`, or a clearly named component in the generation family. Legacy expander/pruner-style families overlap with proposers/selectors and should not be restored for new paper primitives by default.
+- Candidate filtering and retention should use `constraints.Filter`, `selection.Select`, `feedback.Refine`, and selector services such as `selection.TopK` or `selection.ConstraintScore`. Do not add new pruner families unless selectors cannot represent the behavior.
+- Search-time scoring should use `evaluation.Assess` plus `evaluation.Evaluator`. Keep `Judge` implementations only for run-level compatibility needs, but prefer evaluators inside component-based techniques.
+- `stopping.StopWhen` and termination conditions consume evaluation/state facts. Do not combine stopping, evaluation, or feedback into one primitive.
+- `feedback.Template`, trajectory feedback, and reward updates belong to feedback/learning. Feedback should create future attacker context or update credit assignment; it should not be treated as a judgement.
+- `targeting.Query` is the target interaction boundary. Multi-turn target-visible transcript updates should be explicit, such as `targeting.Continue` or a similarly named conversation component.
+- Keep paper-specific prompts, datasets, URLs, thresholds, marker strings, and explanatory state subclass names in examples. Extract only stable reusable mechanics into core primitives.
+- Paper examples that introduce a new primitive must justify why it does not duplicate existing topology, proposer/generator, selector, evaluator, mutation, feedback, target, stopping, data-source, or replay concepts.
+- JBFuzz-style seed pools, seed selection, prompt mutation, and reward updates are the current candidate area for a future evolutionary/population-search taxonomy. Until formalized, keep their APIs typed and reusable but avoid over-generalizing from one paper.
+- Reusable primitive names should describe responsibility rather than origin: prefer suffixes like `Proposer`, `Selector`, `Evaluator`, `Mutator`, `Condition`, `Source`, and `Component`; reserve paper names for example-local classes.

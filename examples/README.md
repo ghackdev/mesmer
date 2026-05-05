@@ -11,8 +11,8 @@ export MESMER_VERBOSE=true
 export MESMER_LOG_FORMAT=rich
 ```
 
-`MESMER_ATTACKER_MODEL` is used by attacker-side components such as `Paraphrase`,
-`LLMCandidateExpander`, and `LLMPlanner`.
+`MESMER_ATTACKER_MODEL` is used by attacker-side generation components such as
+`generation.StructuredLLM` in examples that call an attacker model.
 
 `MESMER_TARGET_MODEL` is used by the target wrapper and is where the target system
 prompt is configured.

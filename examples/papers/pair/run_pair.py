@@ -13,38 +13,27 @@ from pydantic import BaseModel, Field
 
 from mesmer import (
     ActorRole,
-    Assess,
-    CandidateTrajectory,
-    ChatActor,
     InitialState,
-    Iterate,
-    IterativeSearchTechnique,
-    LLMRatingEvaluator,
     LogFormat,
     Objective,
-    ObjectiveSeed,
     ObjectiveSource,
-    Program,
-    Propose,
-    Query,
-    RatingScale,
-    Refine,
     Run,
     Runner,
-    RuntimeState,
-    ScoreAtLeast,
-    SearchPolicy,
-    StopWhen,
-    StructuredCompletion,
-    StructuredLLMProposer,
-    StructuredOutputSpec,
-    TargetBinding,
-    TemplateFeedback,
-    TopKSelector,
+    evaluation,
+    feedback,
+    generation,
+    initialization,
+    runtime,
+    selection,
+    stopping,
+    targeting,
+    topology,
 )
 from mesmer.artifacts.messages import Message, system_message, to_litellm_messages, user_message
 from mesmer.core.errors import StructuredOutputError
 from mesmer.execution.state import Candidate
+from mesmer.search.actors import StructuredCompletion
+from mesmer.search.models import CandidateTrajectory, RatingScale
 from mesmer.targets.base import TargetContext, TargetResponse
 from mesmer.targets.litellm import LiteLLMTarget
 
@@ -199,7 +188,7 @@ class UsageTracker:
         }
 
 
-class MeteredLiteLLMChatActor(ChatActor):
+class MeteredLiteLLMActor(generation.Actor):
     model: str
     tracker: UsageTracker
     generation_params: dict[str, Any] = Field(default_factory=dict)
@@ -300,7 +289,7 @@ class MeteredLiteLLMTarget(LiteLLMTarget):
         )
 
 
-class PairState(RuntimeState):
+class PairState(runtime.RuntimeState):
     """Algorithm state for Prompt Automatic Iterative Refinement."""
 
     frontier: list[CandidateTrajectory] = Field(default_factory=list)
@@ -309,7 +298,7 @@ class PairState(RuntimeState):
     best: CandidateTrajectory | None = None
 
 
-class PairSeed(ObjectiveSeed):
+class PairSeed(initialization.Seed):
     streams: int = Field(default=DEFAULT_STREAMS, ge=1)
     name: str = "pair_seed"
 
@@ -422,38 +411,38 @@ def build_technique(
     iterations: int,
     max_parallel: int,
     success_score: int,
-) -> IterativeSearchTechnique:
-    attacker = MeteredLiteLLMChatActor(
+) -> topology.Search:
+    attacker = MeteredLiteLLMActor(
         model=attacker_model,
         role=ActorRole.ATTACKER,
         name="pair_attacker",
         tracker=tracker,
     )
-    evaluator = MeteredLiteLLMChatActor(
+    evaluator = MeteredLiteLLMActor(
         model=evaluator_model,
         role=ActorRole.EVALUATOR,
         name="pair_evaluator",
         tracker=tracker,
     )
-    return IterativeSearchTechnique(
+    return topology.Search(
         name="pair",
-        program=Program(
+        program=runtime.Program(
             PairSeed(streams=streams),
-            Iterate(
-                policy=SearchPolicy(
+            topology.Iterate(
+                policy=topology.Policy(
                     iterations=iterations,
                     branching_factor=1,
                     width=streams,
                     max_parallel=max_parallel,
                 ),
                 children=[
-                    Propose(
-                        StructuredLLMProposer(
+                    generation.Propose(
+                        generation.StructuredLLM(
                             actor=attacker,
                             system_prompt_template=ATTACKER_SYSTEM_PROMPT,
                             initial_user_prompt_template=ATTACKER_INITIAL_PROMPT,
                             user_prompt_template=ATTACKER_FEEDBACK_PROMPT,
-                            output=StructuredOutputSpec(
+                            output=generation.StructuredOutputSpec(
                                 prompt_field="prompt",
                                 metadata_fields=("improvement",),
                             ),
@@ -461,19 +450,19 @@ def build_technique(
                             generation_params={"temperature": 0.7},
                         )
                     ),
-                    Query(TargetBinding.DEFAULT),
-                    Assess(
-                        LLMRatingEvaluator(
+                    targeting.Query(targeting.TargetBinding.DEFAULT),
+                    evaluation.Assess(
+                        evaluation.LLMRating(
                             actor=evaluator,
                             system_prompt_template=EVALUATOR_SYSTEM_PROMPT,
                             scale=RatingScale(min=1, max=10),
                             generation_params={"temperature": 0},
                         )
                     ),
-                    StopWhen(ScoreAtLeast(success_score)),
-                    Refine(
-                        feedback=TemplateFeedback(FEEDBACK_TEMPLATE),
-                        selector=TopKSelector(k=streams),
+                    stopping.StopWhen(stopping.ScoreAtLeast(success_score)),
+                    feedback.Refine(
+                        feedback=feedback.Template(FEEDBACK_TEMPLATE),
+                        selector=selection.TopK(k=streams),
                     ),
                 ],
             ),
