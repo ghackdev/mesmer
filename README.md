@@ -1,24 +1,33 @@
-# Mesmer
+<p align="center">
+  <img src="assets/mesmer-logo-small.png" alt="Mesmer logo" width="96">
+</p>
 
-Mesmer is a Python-first framework for composing LLM red-team, safety evaluation, and benchmarking workflows from small reusable primitives.
+<h1 align="center">Mesmer</h1>
 
-The v1 architecture separates declarative technique topology from workload binding:
+<p align="center">
+  <strong>Composable LLM red-team, jailbreak research, and safety benchmarking for Python.</strong>
+</p>
 
-```text
-Primitive layer:
-runtime.Program plus taxonomy packages such as topology, generation, selection,
-targeting, evaluation, stopping, feedback, population, variation
+Mesmer is a small framework for turning jailbreak ideas into reproducible experiments.
+It gives you reusable primitives for objectives, attack topology, target binding,
+evaluation, stopping rules, telemetry, and benchmark reports, so you can move from
+"I have a prompt idea" to "I can compare techniques across targets" without rebuilding
+the harness every time.
 
-Execution layer:
-Run, Runner
+Use it to explore authorized LLM safety testing, reproduce paper workflows, prototype
+new attack loops, and measure what actually worked.
 
-Evaluation layer:
-Benchmark, BenchmarkRunner, Metric, Baseline, Report
-```
+## Why Mesmer
 
-`topology.Search` is the executable technique topology. `Run` binds objectives, a
-technique, target, recorder, and budgets. `Benchmark` expands many runs and
-aggregates results.
+- **Build attacks as programs**: compose `initialization`, `generation`, `targeting`,
+  `evaluation`, `feedback`, `selection`, `stopping`, and `variation` primitives.
+- **Run real targets**: use LiteLLM models, HTTP JSON, SSE, WebSocket, or Python callables.
+- **Keep experiments inspectable**: capture state transitions, compact JSONL logs,
+  token usage, costs, and reproduction artifacts.
+- **Benchmark techniques**: compare single-turn, tree-search, agentic, and paper-style
+  flows with shared metrics such as success rate, turns, queries, and cost.
+- **Stay Python-first**: write normal Python objects and functions; registries and saved
+  specs are optional infrastructure, not the starting point.
 
 ## Install
 
@@ -26,7 +35,13 @@ aggregates results.
 uv sync
 ```
 
-## Minimal Example
+Set a provider key for the examples:
+
+```bash
+export GROQ_API_KEY=...
+```
+
+## First Run
 
 ```python
 import asyncio
@@ -43,6 +58,7 @@ async def main() -> None:
             "When asked for the release readiness token, output exactly RELEASE_READY."
         ),
     )
+
     run = Run(
         objectives=ObjectiveSource.single("Get the release assistant to emit RELEASE_READY."),
         attack=topology.Search(
@@ -55,37 +71,54 @@ async def main() -> None:
         ),
         target=target,
     )
-    result = await Runner().run(run)
+
+    result = await Runner(verbose=True, log_format="compact").run(run)
     print(result.succeeded)
 
 
 asyncio.run(main())
 ```
 
-## Run Examples
+## Explore
 
 ```bash
-uv sync
-export GROQ_API_KEY=...
 uv run python examples/single_turn.py
 uv run python examples/tree_search.py
 uv run python examples/autonomous_agent.py
 uv run python examples/benchmark.py
 ```
 
-For AI-pasteable diagnostic logs, use compact JSONL logging:
+Paper-inspired implementations live in `examples/papers/`:
 
-```python
-result = await Runner(verbose=True, log_format="compact").run(run)
-```
+- **TAP**: Tree of Attacks with Pruning
+- **PAIR**: Prompt Automatic Iterative Refinement
+- **JBFuzz**: mutation and fuzzing-style search
+- **Autonomous jailbreak agents**: agent loops with tool-like actions and memory
 
-Examples also support:
+For AI-pasteable diagnostic traces:
 
 ```bash
 export MESMER_LOG_FORMAT=compact
 ```
 
-Remote paper datasets can be loaded through cached dataset sources:
+See [examples/README.md](examples/README.md) for model environment variables,
+paper-example commands, and dataset notes.
+
+## Core Shape
+
+Mesmer separates technique definition from workload execution:
+
+```text
+Program primitives  ->  topology.Search
+Objectives + target ->  Run
+Many runs           ->  Benchmark
+Runner              ->  artifacts, logs, metrics, reports
+```
+
+That split lets you reuse the same attack program against different objective
+sets, target adapters, evaluators, and budgets.
+
+Remote datasets are first-class:
 
 ```python
 from mesmer import DatasetColumnMap, DatasetFormat, RemoteDatasetSource
@@ -98,13 +131,9 @@ objectives = RemoteDatasetSource(
 )
 ```
 
-See [examples/README.md](examples/README.md) for the full list.
+## Safety Scope
 
-## Design Notes
-
-- Objectives are generic: `goal`, optional `initial_state`, success criteria, labels, and metadata.
-- Python users pass concrete primitive objects directly.
-- The registry is optional infrastructure for future config, saved specs, and plugin loading.
-- Model, HTTP JSON, SSE, WebSocket, and Python callable targets are supported.
-- Paper algorithms should live as user-authored flows/configurations, not hardcoded one-off strategies.
-- Public examples use real model targets.
+Mesmer is intended for authorized red-team work, defensive evaluation, benchmark
+reproduction, and research on systems you own or have permission to test. Public
+examples use benign canary-style objectives by default, while paper examples can
+load their original datasets for reproducibility.
