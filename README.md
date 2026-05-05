@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/mesmer-logo-small.png" alt="Mesmer logo" width="96">
+  <img src="assets/mesmer-logo-small.png" alt="Mesmer logo" width="320">
 </p>
 
 <h1 align="center">Mesmer</h1>
