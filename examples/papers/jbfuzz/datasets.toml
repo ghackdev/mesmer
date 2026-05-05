@@ -1,0 +1,28 @@
+[gptfuzz]
+name = "GPTFuzz datasets cited by JBFuzz reference [98]"
+repository = "https://github.com/sherdencooper/GPTFuzz"
+commit = "0c26cccc3b19cd5eed91d6cb6912431cf2501762"
+license = "MIT"
+
+[gptfuzz.questions]
+url = "https://raw.githubusercontent.com/sherdencooper/GPTFuzz/0c26cccc3b19cd5eed91d6cb6912431cf2501762/datasets/questions/question_list.csv"
+format = "csv"
+goal_column = "text"
+metadata_columns = ["index"]
+
+[gptfuzz.prompt_templates]
+url = "https://raw.githubusercontent.com/sherdencooper/GPTFuzz/0c26cccc3b19cd5eed91d6cb6912431cf2501762/datasets/prompts/GPTFuzzer.csv"
+format = "csv"
+text_column = "text"
+
+[gptfuzz.labeled_train_responses]
+url = "https://raw.githubusercontent.com/sherdencooper/GPTFuzz/0c26cccc3b19cd5eed91d6cb6912431cf2501762/datasets/responses_labeled/train.csv"
+format = "csv"
+text_column = "Response"
+label_column = "label"
+
+[gptfuzz.labeled_eval_responses]
+url = "https://raw.githubusercontent.com/sherdencooper/GPTFuzz/0c26cccc3b19cd5eed91d6cb6912431cf2501762/datasets/responses_labeled/evaluate.csv"
+format = "csv"
+text_column = "Response"
+label_column = "label"

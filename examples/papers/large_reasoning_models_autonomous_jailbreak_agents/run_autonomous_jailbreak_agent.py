@@ -40,7 +40,7 @@ from mesmer import (
     TopKSelector,
 )
 
-DEFAULT_LLM_MODEL = "groq/llama-3.3-70b-versatile"
+DEFAULT_LLM_MODEL = "gemini/gemini-2.5-flash"
 ENV_ATTACKER_MODEL = "MESMER_ATTACKER_MODEL"
 ENV_EVALUATOR_MODEL = "MESMER_EVALUATOR_MODEL"
 ENV_TARGET_MODEL = "MESMER_TARGET_MODEL"
@@ -125,12 +125,12 @@ def positive_int(value: str) -> int:
 
 
 def ensure_model_env(attacker_model: str, evaluator_model: str, target_model: str) -> None:
-    uses_groq = any(
+    uses_gemini = any(
         model.startswith("groq/") for model in (attacker_model, evaluator_model, target_model)
     )
-    if uses_groq and not os.getenv("GROQ_API_KEY"):
+    if uses_gemini and not os.getenv("GEMINI_API_KEY"):
         raise RuntimeError(
-            "Set GROQ_API_KEY, or override MESMER_ATTACKER_MODEL, MESMER_EVALUATOR_MODEL, "
+            "Set GEMINI_API_KEY, or override MESMER_ATTACKER_MODEL, MESMER_EVALUATOR_MODEL, "
             "and MESMER_TARGET_MODEL with models for another configured provider."
         )
 

@@ -30,6 +30,9 @@
 - Paper examples should use real model actors/targets through Mesmer wrappers, not direct LiteLLM calls or fake callable targets unless explicitly marked as tests.
 - Examples should showcase capability and make model/target/system prompt configuration obvious.
 - Example scripts should expose small-run controls for local testing, such as row limits, search depth, width, branching factor, and maximum parallelism when relevant.
+- `examples/papers/pair` implements PAIR as independent streams with one proposal/query/evaluation/refinement cycle per stream and prints aggregate plus optional per-call LiteLLM token/cost usage for attacker, evaluator, and target calls.
+- Optional dependencies should be grouped by generic primitive capability, not paper names. Fuzzing-related extras are `lexical-nlp`, `embedding-classifier`, `hf-sequence-classifier`, and aggregate `fuzzing`; concrete primitives must lazy-import and raise actionable install errors.
+- Paper examples that rely on third-party datasets should prefer pinned remote URLs plus a manifest over copying harmful datasets into the repository by default.
 - Use constants or enums for public configuration concepts instead of magic strings.
 - Group code by cohesion and runtime responsibility, not abstract taxonomy.
 - When in doubt, make the framework more flexible for experiment composition, not more vendor-locked around one strategy.
