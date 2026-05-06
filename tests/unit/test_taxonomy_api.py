@@ -23,3 +23,5 @@ def test_taxonomy_modules_are_exported() -> None:
     assert mesmer.selection.Select
     assert mesmer.evaluation.Assess
     assert mesmer.targeting.Query
+    assert mesmer.prompts.Select
+    assert mesmer.transforms.Apply

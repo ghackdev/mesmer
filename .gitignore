@@ -3,6 +3,11 @@
 .ruff_cache/
 .venv/
 .tmp/
+apps/docs/.next/
+build/
+dist/
+node_modules/
+*.egg-info/
 __pycache__/
 *.py[cod]
 *.sqlite3

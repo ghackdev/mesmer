@@ -1,0 +1,22 @@
+---
+title: Evaluation And Stopping
+description: Keep scoring, feedback, and termination separate inside Mesmer experiments.
+---
+
+Evaluation, feedback, and stopping are separate responsibilities.
+
+## Evaluation
+
+`evaluation.Assess` records facts. Evaluators produce scores, labels, reasons, or other structured facts about candidate trajectories and target responses.
+
+Use provider-enforced structured output for LLM-backed components that need machine-readable output. Free-text LLM calls should stay limited to natural-language outputs.
+
+## Stopping
+
+`stopping.StopWhen` consumes facts. Stop conditions such as `stopping.ScoreAtLeast` decide when the runtime should stop based on recorded evidence.
+
+## Feedback
+
+Feedback is not evaluation. `feedback.Refine` converts observations and evaluations into future attacker context or learning state.
+
+Keeping these roles separate makes paper workflows easier to reproduce and inspect.

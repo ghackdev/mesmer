@@ -1,0 +1,17 @@
+{
+  "title": "Mesmer",
+  "pages": [
+    "index",
+    "installation",
+    "first-run",
+    "core-concepts",
+    "component-runtime",
+    "targets",
+    "evaluation-and-stopping",
+    "observability-and-replay",
+    "benchmarks",
+    "prompt-patterns-and-transforms",
+    "paper-examples",
+    "safety-scope"
+  ]
+}

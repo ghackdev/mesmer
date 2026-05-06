@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError, version
+
 from mesmer import (
     constraints,
     data,
@@ -8,11 +10,13 @@ from mesmer import (
     generation,
     initialization,
     population,
+    prompts,
     runtime,
     selection,
     stopping,
     targeting,
     topology,
+    transforms,
     variation,
 )
 from mesmer.artifacts.messages import (
@@ -57,6 +61,11 @@ from mesmer.targets.http_sse import HTTPSseTarget
 from mesmer.targets.litellm import LiteLLMTarget
 from mesmer.targets.websocket import WebSocketTarget
 
+try:
+    __version__ = version("mesmer-ai")
+except PackageNotFoundError:
+    __version__ = "0.0.0"
+
 __all__ = [
     "ActorRole",
     "AttackSuccessRate",
@@ -97,6 +106,7 @@ __all__ = [
     "StateFact",
     "TargetBinding",
     "WebSocketTarget",
+    "__version__",
     "assistant_message",
     "constraints",
     "data",
@@ -105,6 +115,7 @@ __all__ = [
     "generation",
     "initialization",
     "population",
+    "prompts",
     "register_attacker",
     "register_judge",
     "register_target",
@@ -115,6 +126,7 @@ __all__ = [
     "targeting",
     "to_litellm_messages",
     "topology",
+    "transforms",
     "user_message",
     "variation",
 ]

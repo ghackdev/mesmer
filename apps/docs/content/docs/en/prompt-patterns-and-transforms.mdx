@@ -1,0 +1,27 @@
+---
+title: Prompt Patterns And Transforms
+description: Distinguish reusable prompt tactics from deterministic candidate rewrites in Mesmer.
+---
+
+Mesmer keeps prompt tactics and mechanical rewrites separate.
+
+## Prompt Patterns
+
+Prompt patterns live under `prompts`. They are reusable tactics, templates, proposer hints, and transform suggestions. They are not executable transforms by themselves.
+
+The built-in prompt library includes source-tagged patterns from `paper:2307.02483v1` for "Jailbroken: How Does LLM Safety Training Fail?".
+
+## Transforms
+
+Deterministic candidate and message rewrites live under `transforms`. Examples include Base64, ROT13, template wrappers, payload splitting, `Apply`, and `Expand`.
+
+## Variation
+
+Use `variation` for stochastic or learned mutation services. Do not put deterministic encoders under `prompts`, and do not put LLM or lexical mutators under `transforms`.
+
+Run the example:
+
+```bash
+uv run python examples/prompt_patterns.py --mode single-shot
+uv run python examples/prompt_patterns.py --mode pattern
+```

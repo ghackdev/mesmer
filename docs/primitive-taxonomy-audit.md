@@ -28,7 +28,8 @@ general evolutionary search family.
 | Algorithm topology | `topology.Iterate`, removed legacy direct-flow surfaces | Merge and deprecate legacy topology | `topology.Iterate` inside `runtime.Program` is the generic topology. Legacy flows duplicate orchestration and should not be the default authoring path for new papers. |
 | State initialization | `initialization.Seed`, `population.Initialize`, paper state subclasses such as `TapState`, `PairState`, `JBFuzzState` | Formalize | `initialization.Seed` is generic. `population.Initialize` is reusable but should eventually sit under evolutionary/population search. Paper-specific state subclasses are acceptable when they document algorithm data. |
 | Candidate generation | `generation.Propose`, `generation.StructuredLLM`, `generation.Template`, `population.Generate` | Generalize | `generation.Propose` plus `Proposer` is solid for LLM proposal. Fuzz generation is reusable but should become a population/evolutionary generator. |
-| Candidate transformation/mutation | `variation.Mutator`, `variation.LLMTemplate`, `variation.LexicalSubstitution` | Generalize and merge | Mutation is the broader concept. Deterministic rewrites should use generation or variation primitives with typed provenance. |
+| Prompt patterns and libraries | `prompts.PromptPattern`, `prompts.Select`, prompt sources/selectors | Keep | Prompt patterns are reusable tactics, templates, and proposer inspiration. They are data/context, not executable transforms. |
+| Candidate transformation/mutation | `transforms.Transform`, `transforms.Encode`, `transforms.Apply`, `transforms.Expand`, `variation.Mutator`, `variation.LLMTemplate`, `variation.LexicalSubstitution` | Generalize and merge | Deterministic transforms mechanically rewrite candidate messages with provenance. Variation mutators remain stochastic or learned rewrites. |
 | Filtering and selection | `constraints.Filter`, `selection.Select`, `feedback.Refine`, `selection.TopK`, `selection.ConstraintScore`, population selectors | Formalize and merge | Selectors are core. Population selectors are selection policies and should remain separate from frontier selectors unless a shared ranking protocol emerges. |
 | Target interaction | `targeting.Query`, `targeting.Continue`, target bindings | Keep | `targeting.Query` is the right target boundary. `targeting.Continue` cleanly models multi-turn transcript accumulation. |
 | Evaluation and judgement | `evaluation.Assess`, `evaluation.Evaluator`, `evaluation.LLMRating`, classifier evaluators, legacy `Judge` implementations | Merge gradually | `evaluation.Assess` with `evaluation.Evaluator` is the right search-time API. Legacy `Judge` remains useful at the run boundary and for existing flows, but new paper loops should prefer evaluators inside `evaluation.Assess`. |
@@ -122,7 +123,9 @@ Future primitives should be classified into one of these families:
 | Topology components | Define loop or control shape without embedding paper prompts or scoring logic. Includes `topology.Iterate` and future population or beam-loop containers. |
 | Initialization components | Create initial frontier, population, or state. Includes `initialization.Seed` and seed/pool initialization. |
 | Generation services/components | Produce new candidate trajectories from state. Includes `generation.Propose`, `Proposer`, and future population generators. |
-| Variation services | Transform or mutate candidate material with typed provenance. Includes `variation.Mutator`, lexical mutators, and LLM template mutators. |
+| Prompt pattern sources/components | Provide reusable prompt tactics, templates, proposer hints, and transform suggestions. Includes `prompts.PromptPattern`, prompt sources, and pattern selectors. |
+| Transform services/components | Mechanically rewrite candidate messages with typed provenance. Includes `transforms.Encode`, `transforms.Apply`, and `transforms.Expand`. |
+| Variation services | Mutate candidate material stochastically or with learned/LLM rewriting. Includes `variation.Mutator`, lexical mutators, and LLM template mutators. |
 | Constraint components | Check and optionally filter candidates according to declared constraints. Includes `constraints.Filter` and `CandidateConstraint`. |
 | Selection services/components | Rank or retain frontier/population elements. Includes `FrontierSelector`, seed selectors, and future population selectors. |
 | Target components | Call targets and append responses/attempts. Includes `targeting.Query` and target bindings. |
@@ -136,6 +139,12 @@ Future primitives should be classified into one of these families:
 
 - Use responsibility names for reusable primitives: `Proposer`, `Selector`,
   `Evaluator`, `Mutator`, `Condition`, `Source`, `Component`.
+- Keep prompt tactics and deterministic rewrites separate: prompt patterns live
+  under `prompts`, while encoders, wrappers, and splitters live under `transforms`.
+  Paper-derived libraries should keep this split: `paper:2307.02483v1` prompt
+  entries document prefix, style, distractor, roleplay, and combination patterns,
+  while Base64, ROT13, payload splitting, and character rewrites remain transform
+  primitives or transform suggestions.
 - Keep paper names in example files, prompts, state subclasses, CLI flags, and
   README text unless the primitive is only meaningful for that paper.
 - Do not add a new topology class when an ordered `runtime.Program` with components can

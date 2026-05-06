@@ -1,0 +1,36 @@
+---
+title: Introducing Mesmer's Component Runtime
+description: Why Mesmer models LLM red-team experiments as ordered programs, typed state patches, and replayable artifacts.
+date: "2026-05-06"
+authors:
+  - Mesmer maintainers
+tags:
+  - architecture
+  - red-team
+  - reproducibility
+draft: false
+---
+
+Mesmer starts from a practical frustration: prompt ideas are easy to sketch, but reproducible LLM safety experiments need more than a clever string.
+
+An experiment needs objectives, target interaction, generation, filtering, selection, evaluation, feedback, stopping, logging, cost accounting, and replay artifacts. When those pieces live inside a single script, the result is hard to compare, hard to debug, and hard to turn into a benchmark.
+
+Mesmer treats the attack workflow as an ordered program.
+
+```text
+runtime.Program
+  initialization.Seed
+  topology.Iterate
+    generation.Propose
+    constraints.Filter
+    targeting.Query
+    evaluation.Assess
+    feedback.Refine
+    stopping.StopWhen
+```
+
+The order matters. A constraint before a target query changes which messages are sent. A feedback component after evaluation changes the next proposal. A stopping component consumes recorded facts instead of pretending to be a judge.
+
+The payoff is inspectability. A successful run should not end with only `true` or `false`; it should emit the target replay messages, target metadata, judgement details, and search trace needed to understand and reproduce the result.
+
+That is the shape Mesmer optimizes for: composable experiments, real target boundaries, typed state, and evidence you can inspect.

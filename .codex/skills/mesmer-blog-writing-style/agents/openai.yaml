@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mesmer Blog Writing Style"
+  short_description: "Write Mesmer posts in the project voice"
+  default_prompt: "Use $mesmer-blog-writing-style to draft a Mesmer blog post in the project voice."

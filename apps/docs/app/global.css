@@ -1,0 +1,454 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+@theme {
+  --color-console-background: var(--console-background);
+  --color-console-foreground: var(--console-foreground);
+  --color-console-muted: var(--console-muted);
+  --color-console-panel: var(--console-panel);
+  --color-console-border: var(--console-border);
+  --color-console-accent: var(--console-accent);
+  --color-console-accent-foreground: var(--console-accent-foreground);
+  --color-console-cyan: var(--console-cyan);
+  --color-console-amber: var(--console-amber);
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+:root {
+  color-scheme: light;
+  --console-background: #f4faf8;
+  --console-foreground: #071626;
+  --console-muted: #526b72;
+  --console-panel: #eaf5f3;
+  --console-border: #bfd8d5;
+  --console-accent: #06736b;
+  --console-accent-foreground: #f4fffc;
+  --console-cyan: #138fa0;
+  --console-amber: #4d6800;
+}
+
+.dark {
+  color-scheme: dark;
+  --console-background: #02070d;
+  --console-foreground: #d8fff7;
+  --console-muted: #86aab0;
+  --console-panel: #071425;
+  --console-border: #16334a;
+  --console-accent: #2dd5c3;
+  --console-accent-foreground: #031117;
+  --console-cyan: #68e9ff;
+  --console-amber: #a8f12a;
+}
+
+:root,
+.dark {
+  --color-fd-background: var(--console-background);
+  --color-fd-foreground: var(--console-foreground);
+  --color-fd-muted: var(--console-panel);
+  --color-fd-muted-foreground: var(--console-muted);
+  --color-fd-popover: var(--console-panel);
+  --color-fd-popover-foreground: var(--console-foreground);
+  --color-fd-card: var(--console-panel);
+  --color-fd-card-foreground: var(--console-foreground);
+  --color-fd-border: color-mix(in oklab, var(--console-border) 82%, transparent);
+  --color-fd-primary: var(--console-accent);
+  --color-fd-primary-foreground: var(--console-accent-foreground);
+  --color-fd-secondary: color-mix(in oklab, var(--console-panel) 88%, var(--console-background));
+  --color-fd-secondary-foreground: var(--console-foreground);
+  --color-fd-accent: color-mix(in oklab, var(--console-accent) 16%, var(--console-panel));
+  --color-fd-accent-foreground: var(--console-foreground);
+  --color-fd-ring: var(--console-accent);
+  --color-fd-overlay: color-mix(in oklab, var(--console-background) 55%, transparent);
+  --color-fd-success: var(--console-accent);
+  --color-fd-info: var(--console-cyan);
+  --color-fd-warning: var(--console-amber);
+}
+
+html {
+  scrollbar-gutter: stable;
+  background: var(--console-background);
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+body {
+  background:
+    radial-gradient(circle at 78% 8%, color-mix(in oklab, var(--console-cyan) 12%, transparent), transparent 18rem),
+    linear-gradient(180deg, color-mix(in oklab, var(--console-panel) 58%, transparent), transparent 18rem),
+    var(--console-background);
+  color: var(--console-foreground);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--console-accent) 30%, transparent);
+  color: var(--console-foreground);
+}
+
+.console-grid {
+  background-image:
+    linear-gradient(color-mix(in oklab, var(--console-border) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--console-border) 55%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black, transparent 72%);
+}
+
+.scanline {
+  position: relative;
+  overflow: hidden;
+}
+
+.scanline::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    transparent 48%,
+    color-mix(in oklab, var(--console-accent) 12%, transparent) 50%,
+    transparent 52%,
+    transparent
+  );
+  background-size: 100% 8px;
+  opacity: 0.35;
+}
+
+.mesmer-sigil {
+  position: relative;
+  display: grid;
+  min-width: 4.5rem;
+  place-items: center;
+}
+
+.mesmer-sigil::before,
+.mesmer-sigil::after {
+  position: absolute;
+  inset: -0.55rem;
+  border: 1px solid color-mix(in oklab, var(--console-accent) 42%, transparent);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.mesmer-sigil::before {
+  animation: sigil-breathe 4.8s ease-in-out infinite;
+  box-shadow:
+    0 0 24px color-mix(in oklab, var(--console-accent) 22%, transparent),
+    inset 0 0 18px color-mix(in oklab, var(--console-cyan) 10%, transparent);
+}
+
+.mesmer-sigil::after {
+  inset: -1rem;
+  border-color: color-mix(in oklab, var(--console-cyan) 24%, transparent);
+  animation: sigil-turn 12s linear infinite;
+}
+
+.attack-map {
+  background:
+    radial-gradient(circle at 50% 48%, color-mix(in oklab, var(--console-accent) 17%, transparent), transparent 8rem),
+    radial-gradient(circle at 54% 50%, color-mix(in oklab, var(--console-amber) 9%, transparent), transparent 5.5rem),
+    linear-gradient(135deg, color-mix(in oklab, var(--console-panel) 74%, transparent), transparent),
+    var(--console-background);
+}
+
+.attack-map::before {
+  position: absolute;
+  inset: 1rem;
+  border: 1px dashed color-mix(in oklab, var(--console-border) 75%, transparent);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.attack-line {
+  fill: none;
+  stroke: url("#attackLine");
+  stroke-dasharray: 10 14;
+  stroke-linecap: round;
+  stroke-width: 2;
+  opacity: 0.78;
+  animation: data-flow 2.8s linear infinite;
+}
+
+.attack-line.delay-1 {
+  animation-delay: 280ms;
+}
+
+.attack-line.delay-2 {
+  animation-delay: 560ms;
+}
+
+.attack-line.delay-3 {
+  animation-delay: 840ms;
+}
+
+.attack-line.delay-4 {
+  animation-delay: 1120ms;
+}
+
+.attack-node {
+  min-width: 7rem;
+  border: 1px solid var(--console-border);
+  border-radius: 0.375rem;
+  background: color-mix(in oklab, var(--console-panel) 92%, transparent);
+  padding: 0.55rem 0.65rem;
+  box-shadow: 0 0 18px color-mix(in oklab, var(--console-accent) 10%, transparent);
+  animation: node-pulse 3.2s ease-in-out infinite;
+}
+
+.live-dot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.live-dot::before {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 14px currentColor;
+  content: "";
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+.trace-row {
+  opacity: 0.62;
+  animation: trace-focus 4s ease-in-out infinite;
+}
+
+.footer-link {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--console-border);
+  border-radius: 0.375rem;
+  background: var(--console-background);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--console-muted);
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.footer-link:hover {
+  border-color: color-mix(in oklab, var(--console-accent) 70%, var(--console-border));
+  color: var(--console-accent);
+  transform: translateY(-1px);
+}
+
+.footer-link:focus-visible {
+  outline: 2px solid var(--console-accent);
+  outline-offset: 2px;
+}
+
+#nd-nav > div {
+  border-color: color-mix(in oklab, var(--console-border) 78%, transparent);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--console-panel) 72%, var(--console-background)) 0%,
+      color-mix(in oklab, var(--console-panel) 90%, var(--console-background)) 48%,
+      color-mix(in oklab, var(--console-panel) 72%, var(--console-background)) 100%
+    ),
+    var(--console-panel);
+  box-shadow:
+    0 1px 0 color-mix(in oklab, var(--console-cyan) 16%, transparent),
+    0 12px 32px color-mix(in oklab, var(--console-foreground) 16%, transparent);
+}
+
+#nd-nav a {
+  color: color-mix(in oklab, var(--console-muted) 84%, var(--console-foreground));
+}
+
+#nd-nav a:hover,
+#nd-nav a[data-active="true"] {
+  color: var(--console-accent);
+}
+
+#nd-nav [data-search] {
+  border-color: color-mix(in oklab, var(--console-border) 80%, transparent);
+  background: color-mix(in oklab, var(--console-panel) 72%, var(--console-background));
+  color: var(--console-muted);
+}
+
+#nd-nav [data-search]:hover {
+  border-color: color-mix(in oklab, var(--console-accent) 58%, var(--console-border));
+  color: var(--console-foreground);
+}
+
+.mesmer-nav-brand {
+  display: inline-flex;
+  align-items: center;
+  color: var(--console-foreground);
+  letter-spacing: 0;
+}
+
+.mesmer-nav-logo {
+  width: 2.35rem;
+  height: 2.35rem;
+  object-fit: contain;
+  filter: drop-shadow(0 0 10px color-mix(in oklab, var(--console-accent) 30%, transparent));
+}
+
+.mesmer-blog-body {
+  color: color-mix(in oklab, var(--console-foreground) 92%, var(--console-muted));
+  font-size: 1.05rem;
+  line-height: 1.78;
+}
+
+.mesmer-blog-body :where(p, ul, ol, blockquote, pre) {
+  margin-top: 1.2rem;
+  margin-bottom: 1.2rem;
+}
+
+.mesmer-blog-body :where(h2) {
+  margin-top: 3.5rem;
+  margin-bottom: 1.25rem;
+  border-top: 1px solid var(--console-border);
+  padding-top: 2rem;
+  color: var(--console-foreground);
+  font-size: clamp(1.9rem, 4vw, 2.75rem);
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+
+.mesmer-blog-body :where(h3) {
+  margin-top: 2.25rem;
+  margin-bottom: 1rem;
+  color: var(--console-foreground);
+  font-size: 1.45rem;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.mesmer-blog-body :where(blockquote) {
+  border-left: 3px solid var(--console-accent);
+  border-radius: 0.35rem;
+  background: color-mix(in oklab, var(--console-panel) 68%, transparent);
+  padding: 1rem 1.25rem;
+  color: var(--console-foreground);
+}
+
+.mesmer-blog-body :where(blockquote p) {
+  margin: 0;
+}
+
+.mesmer-blog-body :where(figure) {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+.mesmer-blog-body :where(figure img) {
+  width: 100%;
+  border: 1px solid var(--console-border);
+  border-radius: 0.65rem;
+  background: var(--console-panel);
+  box-shadow: 0 16px 38px color-mix(in oklab, var(--console-foreground) 10%, transparent);
+}
+
+.mesmer-blog-body :where(figcaption) {
+  margin-top: 0.75rem;
+  color: var(--console-muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.mesmer-blog-body :where(pre) {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.mesmer-blog-body :where(code) {
+  font-size: 0.94em;
+}
+
+.mesmer-blog-body :where(pre code) {
+  display: block;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+@keyframes sigil-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: rotate(45deg) scale(0.92);
+  }
+  50% {
+    opacity: 0.95;
+    transform: rotate(45deg) scale(1.04);
+  }
+}
+
+@keyframes sigil-turn {
+  from {
+    transform: rotate(45deg);
+  }
+  to {
+    transform: rotate(405deg);
+  }
+}
+
+@keyframes data-flow {
+  to {
+    stroke-dashoffset: -48;
+  }
+}
+
+@keyframes node-pulse {
+  0%,
+  100% {
+    border-color: var(--console-border);
+    transform: translateY(0);
+  }
+  50% {
+    border-color: color-mix(in oklab, var(--console-accent) 75%, var(--console-border));
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.86);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes trace-focus {
+  0%,
+  100% {
+    opacity: 0.62;
+  }
+  45%,
+  65% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

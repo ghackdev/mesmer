@@ -1,0 +1,26 @@
+---
+title: Core Concepts
+description: "Understand Mesmer's public concepts: objectives, runs, programs, components, services, and benchmarks."
+---
+
+Mesmer separates technique definition from workload execution.
+
+## Objectives
+
+Objectives describe what an experiment is trying to elicit or measure. Use `ObjectiveSource.single(...)` for one goal, local datasets for batches, or `RemoteDatasetSource` for pinned remote benchmark data.
+
+## Runs
+
+A `Run` combines objectives, an attack technique, and a target. It is the smallest unit the runner can execute.
+
+## Programs
+
+`runtime.Program` is the canonical execution substrate. It contains ordered components. The order is meaningful: a constraint before `targeting.Query` filters before a target call; a constraint after target interaction evaluates a different boundary.
+
+## Components And Services
+
+Components receive runtime state and return state patches. Services such as proposers, selectors, targets, evaluators, mutators, and data sources are invoked by components.
+
+## Benchmarks
+
+Benchmarks run many experiments with shared metrics such as success rate, turns, queries, and cost.

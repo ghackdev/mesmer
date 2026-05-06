@@ -65,6 +65,17 @@ success criteria.
 uv run python examples/benchmark.py
 ```
 
+## Prompt Patterns
+
+Scenario: a real model target receives a benign encoded readiness-check request.
+The example shows both direct single-shot encoding and selecting a reusable prompt
+pattern before applying an explicit encoder transform.
+
+```bash
+uv run python examples/prompt_patterns.py --mode single-shot
+uv run python examples/prompt_patterns.py --mode pattern
+```
+
 ## Paper Examples
 
 Paper-specific examples live under `examples/papers/`.

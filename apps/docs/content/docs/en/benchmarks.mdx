@@ -1,0 +1,35 @@
+---
+title: Benchmarks
+description: Compare Mesmer techniques across objectives, targets, and budgets.
+---
+
+Benchmarks let you compare attack programs under shared metrics.
+
+The benchmark example compares single-turn, tree-search, and autonomous-agent flows across several objective-specific success criteria:
+
+```bash
+uv run python examples/benchmark.py
+```
+
+Useful benchmark dimensions include:
+
+- Success rate.
+- Turns.
+- Target queries.
+- Attacker, evaluator, and target token usage.
+- Cost.
+- Stop reason.
+- Reproduction artifact availability.
+
+Remote datasets are first-class:
+
+```python
+from mesmer import DatasetColumnMap, DatasetFormat, RemoteDatasetSource
+
+objectives = RemoteDatasetSource(
+    url="https://example.com/dataset.csv",
+    format=DatasetFormat.CSV,
+    column_map=DatasetColumnMap(goal="goal", target="target"),
+    limit=3,
+)
+```

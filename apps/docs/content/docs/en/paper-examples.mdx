@@ -1,0 +1,23 @@
+---
+title: Paper Examples
+description: Reproduce paper-inspired Mesmer workflows while keeping reusable primitives generic.
+---
+
+Paper-inspired implementations live in `examples/papers/`.
+
+Current examples include:
+
+- TAP: Tree of Attacks with Pruning.
+- PAIR: Prompt Automatic Iterative Refinement.
+- JBFuzz: mutation and fuzzing-style search.
+- Autonomous jailbreak agents: agent loops with tool-like actions and memory.
+
+Paper examples should use real model actors and targets through Mesmer wrappers, not direct LiteLLM calls or fake callable targets unless explicitly marked as tests.
+
+Run a small TAP example:
+
+```bash
+MESMER_LOG_FORMAT=compact uv run python examples/papers/tap/run_tap.py --limit 1
+```
+
+Paper-specific prompts, datasets, URLs, thresholds, marker strings, and explanatory state subclass names belong in examples. Extract stable reusable mechanics into core primitives only when the mechanism appears beyond one paper.

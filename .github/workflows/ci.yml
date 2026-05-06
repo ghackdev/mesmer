@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  conventional-commit:
+    name: Conventional commit title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|perf|docs|test|tests|refactor|style|chore|ci|build|revert)(\([A-Za-z0-9._/-]+\))?!?: .+'
+          if [[ ! "$PR_TITLE" =~ $pattern ]]; then
+            echo "PR title must follow Conventional Commits, for example: feat: add target adapter"
+            echo "Received: $PR_TITLE"
+            exit 1
+          fi
+
+  test:
+    name: Test and build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked --group dev
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Test
+        run: uv run pytest
+
+      - name: Build package
+        run: uv build
+
+      - name: Smoke test wheel install
+        run: |
+          python -m venv /tmp/mesmer-smoke
+          /tmp/mesmer-smoke/bin/python -m pip install --upgrade pip
+          /tmp/mesmer-smoke/bin/python -m pip install dist/*.whl
+          cd /tmp
+          /tmp/mesmer-smoke/bin/python -c "import mesmer; print(mesmer.__version__)"

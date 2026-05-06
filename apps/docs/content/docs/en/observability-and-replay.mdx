@@ -1,0 +1,22 @@
+---
+title: Observability And Replay
+description: Preserve state transitions, compact logs, token usage, and reproduction artifacts for Mesmer runs.
+---
+
+Mesmer treats replayable evidence as a core output, not a nice-to-have.
+
+Successful runs should emit a reproduction artifact with:
+
+- Exact target replay `messages`.
+- Target metadata.
+- Judgement details.
+- Search trace.
+- Replay-critical candidate provenance.
+
+Rich logs are optimized for humans. Compact logs are machine-readable JSONL and useful for automation or AI-assisted diagnosis.
+
+```bash
+export MESMER_LOG_FORMAT=compact
+```
+
+The runtime also preserves compact state transition history. Logs alone are not enough for reproducible experiments.

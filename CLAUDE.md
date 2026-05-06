@@ -41,6 +41,13 @@
 - New algorithm topology should normally be expressed as ordered components inside `Program`. Do not add direct `Flow` subclasses, graph step systems, or one-off tree/agent loops for paper work unless the component runtime cannot express the required control shape.
 - `Iterate` is the default reusable loop topology. Legacy direct-flow surfaces have been removed from the public API and should not be restored as the normal pattern for new paper examples.
 - Candidate generation should use `generation.Propose` plus a `Proposer`, or a clearly named component in the generation family. Legacy expander/pruner-style families overlap with proposers/selectors and should not be restored for new paper primitives by default.
+- Prompt patterns live under `prompts` and are reusable prompt tactics, templates, proposer hints, and transform suggestions. They are not executable transforms by themselves.
+- High-level paper guidance such as "competing objectives" should also use `prompts.PromptPattern` with `description`, `proposer_hint`, tags, and source metadata, but no concrete `templates` unless it should materialize directly. Selected prompt-pattern context is proposer inspiration for runtime generation.
+- Mismatched generalization should be represented as high-level prompt guidance, while concrete encodings such as Base64 stay as deterministic transforms or suggested transforms.
+- `generation.StructuredLLM` default proposal prompts should include selected prompt-pattern context so `prompts.Select` can guide runtime pattern generation without every example redefining the proposer prompt.
+- `transforms.FromPromptPattern` should materialize only concrete templates and suggested transforms; guidance-only prompt patterns are context for proposers and should not duplicate the original candidate as a transform output.
+- Deterministic candidate/message rewrites live under `transforms`. Encoders such as Base64/ROT13, template wrappers, payload splitting, `Apply`, and `Expand` should be implemented there with typed provenance.
+- Keep `variation` for stochastic or learned mutation services. Do not put deterministic encoders under `prompts` or LLM/lexical mutators under `transforms`.
 - Candidate filtering and retention should use `constraints.Filter`, `selection.Select`, `feedback.Refine`, and selector services such as `selection.TopK` or `selection.ConstraintScore`. Do not add new pruner families unless selectors cannot represent the behavior.
 - Search-time scoring should use `evaluation.Assess` plus `evaluation.Evaluator`. Keep `Judge` implementations only for run-level compatibility needs, but prefer evaluators inside component-based techniques.
 - `stopping.StopWhen` and termination conditions consume evaluation/state facts. Do not combine stopping, evaluation, or feedback into one primitive.
@@ -50,3 +57,9 @@
 - Paper examples that introduce a new primitive must justify why it does not duplicate existing topology, proposer/generator, selector, evaluator, mutation, feedback, target, stopping, data-source, or replay concepts.
 - JBFuzz-style seed pools, seed selection, prompt mutation, and reward updates are the current candidate area for a future evolutionary/population-search taxonomy. Until formalized, keep their APIs typed and reusable but avoid over-generalizing from one paper.
 - Reusable primitive names should describe responsibility rather than origin: prefer suffixes like `Proposer`, `Selector`, `Evaluator`, `Mutator`, `Condition`, `Source`, and `Component`; reserve paper names for example-local classes.
+- The project license is Apache-2.0. Keep `LICENSE.md`, `pyproject.toml` license metadata, and the README license section aligned.
+- The public documentation site lives in `apps/docs` as a pnpm workspace package named `@mesmer/docs`.
+- The docs site uses Next.js, Fumadocs MDX/UI, Tailwind CSS, and small shadcn-style local UI components. Do not replace this with a custom documentation stack unless explicitly requested.
+- Documentation content lives under `apps/docs/content/docs/en`; blog posts live under `apps/docs/content/blog/en`. Keep English as the hidden default locale and mirror this directory shape when adding future translations.
+- The docs app should keep SEO and LLM-readiness first-class: metadata, sitemap, robots, Open Graph images, RSS for blog, `/llms.txt`, `/llms-full.txt`, and `.mdx` markdown mirrors should stay working when content changes.
+- The docs visual direction is compact oldschool hacker console mixed with modern web: restrained surfaces, accessible contrast, light/dark mode, monospace accents, and no decorative effects that make text harder to scan.

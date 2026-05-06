@@ -1,0 +1,24 @@
+---
+title: Component Runtime
+description: Learn how Mesmer models attack workflows as ordered runtime components and typed state patches.
+---
+
+`Program`, `Component`, `ContainerComponent`, `RuntimeState`, `StatePatch`, `StateFact`, and `topology.Search` form the canonical runtime for new techniques.
+
+The runtime favors explicit composition:
+
+- `initialization.Seed` creates the initial frontier.
+- `topology.Iterate` expresses loop shape and budget policy.
+- `generation.Propose` creates candidate trajectories through a `Proposer`.
+- `constraints.Filter` runs ordered candidate constraints wherever it appears in the tree.
+- `selection.Select` retains candidates through selectors such as `TopK`.
+- `targeting.Query` is the target-call boundary.
+- `evaluation.Assess` writes evaluation facts.
+- `feedback.Refine` turns observations into attacker context.
+- `stopping.StopWhen` consumes state facts and stop conditions.
+
+Runtime state is typed enough to preserve replay-critical information without forcing every technique into a rigid class hierarchy.
+
+## Design Rule
+
+New algorithm topology should normally be expressed as ordered components inside `Program`. Avoid adding one-off flow classes when components can express the control shape.

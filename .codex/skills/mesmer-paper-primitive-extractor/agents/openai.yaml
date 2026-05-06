@@ -1,0 +1,3 @@
+display_name: Mesmer Paper Primitive Extractor
+short_description: Extract source-backed Mesmer prompt patterns and transforms from papers.
+default_prompt: Given a paper PDF or text, extract reusable Mesmer prompt patterns and transform primitives into this repository while preserving the prompt-pattern versus transform split.

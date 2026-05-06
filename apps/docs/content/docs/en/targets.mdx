@@ -1,0 +1,26 @@
+---
+title: Targets
+description: Query real model and service targets through Mesmer's target boundary.
+---
+
+`targeting.Query` is the target interaction boundary. Mesmer target adapters keep experiments portable while preserving target-visible messages for replay.
+
+Current target families include:
+
+- LiteLLM model targets.
+- HTTP JSON services.
+- Server-sent event streams.
+- WebSocket services.
+- Python callables for local or test-only targets.
+
+Multi-turn target-visible transcript updates should be explicit, such as `targeting.Continue`, so conversation state is part of the search trace instead of hidden in an adapter.
+
+## Provider Keys
+
+Examples that use real models expect provider credentials such as:
+
+```bash
+export GROQ_API_KEY=...
+```
+
+Set `MESMER_TARGET_MODEL` to choose the target model used by example wrappers.

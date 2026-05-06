@@ -47,6 +47,9 @@ DEFAULT_PROPOSER_USER_PROMPT = "\n".join(
         "Current prompt:",
         "{current_prompt}",
         "",
+        "Selected prompt pattern guidance:",
+        "{prompt_pattern_context}",
+        "",
         "Feedback:",
         "{feedback}",
     ]
@@ -69,6 +72,9 @@ def template_context(
     current_prompt = trajectory.latest_text if trajectory else ""
     feedback = trajectory.feedback[-1] if trajectory and trajectory.feedback else ""
     transcript = _render_transcript(trajectory.candidate.messages) if trajectory else ""
+    pattern_context = _metadata_text(trajectory, "prompt_pattern_context")
+    selected_patterns = _metadata_text(trajectory, "prompt_pattern_ids")
+    variant_context = _metadata_text(trajectory, "operator_chain")
     return {
         "objective": objective.goal,
         "goal": objective.goal,
@@ -80,6 +86,9 @@ def template_context(
         "response": response,
         "score": score,
         "feedback": feedback or "No previous feedback.",
+        "prompt_pattern_context": pattern_context,
+        "selected_prompt_patterns": selected_patterns,
+        "variant_context": variant_context,
     }
 
 
@@ -87,6 +96,20 @@ def _render_transcript(messages: list[Message]) -> str:
     if not messages:
         return "(empty)"
     return "\n".join(f"{message.role.value}: {message.content}" for message in messages)
+
+
+def _metadata_text(
+    trajectory: CandidateTrajectory | None,
+    key: str,
+) -> str:
+    if trajectory is None:
+        return ""
+    value = trajectory.metadata.get(key) or trajectory.candidate.metadata.get(key)
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    return str(value)
 
 
 class StructuredOutputSpec(MesmerModel):
