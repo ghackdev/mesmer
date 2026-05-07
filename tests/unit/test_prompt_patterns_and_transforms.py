@@ -7,11 +7,11 @@ from pydantic import Field
 from mesmer import generation, initialization, prompts, runtime, transforms
 from mesmer.artifacts.messages import assistant_message, user_message
 from mesmer.execution.state import Candidate
+from mesmer.flows.base import AttackContext
 from mesmer.objectives.models import Objective
 from mesmer.runtime.component import RuntimeContext
 from mesmer.search.components import template_context
 from mesmer.search.models import CandidateTrajectory
-from mesmer.topology import AttackContext
 
 
 class NoopBudget:

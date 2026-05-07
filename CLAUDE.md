@@ -8,12 +8,13 @@
 - Any LLM-backed component that needs machine-readable output must use provider-enforced structured output and validate it with a schema. Keep free-text LLM calls only for natural-language outputs.
 - Provider-enforced structured output is the default contract for machine-readable control flow. Do not add prompt-only JSON instructions plus ad hoc parsing unless the user explicitly asks for a temporary compatibility path.
 - Public APIs should be declarative, self-explaining, and optimized for experimentation.
-- Prefer ordered component trees over flat class arguments when order/hierarchy matters.
-- Do not expose imperative `steps` as the normal authoring path; raw execution steps are internal/advanced.
-- Treat user-orchestrated building blocks as components; provider clients, selectors, parsers, targets, judges, and actors are services used by components.
-- Components receive runtime state and return state patches. Avoid hidden orchestration and uncontrolled mutation.
-- Declare state facts for validation, but do not ask components to declare side-effect categories. Components can lie; observe effects at real boundaries instead.
-- Technique examples should declare their algorithm state explicitly with a named `RuntimeState` subclass when state is part of understanding the paper.
+- Prefer named techniques and typed operators over flat class arguments when order/hierarchy matters.
+- Do not expose imperative `steps` as the normal authoring path; raw workflow composition is internal/advanced.
+- Treat user-orchestrated building blocks as operators; provider clients, selectors, parsers, targets, judges, actors, and sources are strategies/services used by operators.
+- Operators receive typed runtime state and return patches. Avoid hidden orchestration and uncontrolled mutation.
+- Operators declare the state slices they read and write for validation and documentation. They should also declare external capabilities such as target calls when relevant.
+- Built-in techniques infer their state schema from operators. Users should inspect `state_schema()`, `workflow_graph()`, and `describe()` instead of writing redundant state specs.
+- Technique examples should make algorithm state visible when it is part of understanding the paper, either through named state slices or clearly documented metadata.
 - Keep framework control state internal. Do not force techniques to declare fields like `stopped` or `stop_reason`.
 - Preserve compact state transition history for replay/debugging; logs alone are not enough.
 - TAP-style state should show algorithm data: frontier, iteration/depth, target-call count, best candidate, constraints, responses, evaluations, feedback.
@@ -36,25 +37,25 @@
 - Use constants or enums for public configuration concepts instead of magic strings.
 - Group code by cohesion and runtime responsibility, not abstract taxonomy.
 - When in doubt, make the framework more flexible for experiment composition, not more vendor-locked around one strategy.
-- The accepted primitive taxonomy is: runtime substrate, topology components, initialization components, generation services/components, variation services, constraint components, selection services/components, target components, evaluation components/services, stopping components, feedback/learning components, data sources, and observability/replay.
-- `Program`, `Component`, `ContainerComponent`, `RuntimeState`, `StatePatch`, `StateFact`, and `topology.Search` are the canonical execution substrate for new paper techniques.
-- New algorithm topology should normally be expressed as ordered components inside `Program`. Do not add direct `Flow` subclasses, graph step systems, or one-off tree/agent loops for paper work unless the component runtime cannot express the required control shape.
-- `Iterate` is the default reusable loop topology. Legacy direct-flow surfaces have been removed from the public API and should not be restored as the normal pattern for new paper examples.
-- Candidate generation should use `generation.Propose` plus a `Proposer`, or a clearly named component in the generation family. Legacy expander/pruner-style families overlap with proposers/selectors and should not be restored for new paper primitives by default.
+- The accepted primitive taxonomy is: state slices, operators, workflow blocks, transitions, techniques, strategies/services, data sources, observability/replay, and benchmarks.
+- `State`, `Operator`, `Transition`, and `Workflow` are the durable runtime kernel. `Technique` is the user-facing recipe layer that assembles operators into a workflow.
+- Do not restore `runtime.Program`, `topology.Search`, or `topology.Iterate` as the canonical public authoring path. The old component-tree design is historical only.
+- New algorithm structure should normally be expressed as a named `Technique` with reusable operators. Add a custom operator for a new state transition, a workflow block only for a genuinely new control shape, and a technique only for a distinct algorithm skeleton.
+- Candidate generation should use `ops.Propose` plus a `proposers.Proposer`, or a clearly named operator in the generation/population family. Legacy expander/pruner-style families overlap with proposers/selectors and should not be restored for new paper primitives by default.
 - Prompt patterns live under `prompts` and are reusable prompt tactics, templates, proposer hints, and transform suggestions. They are not executable transforms by themselves.
 - High-level paper guidance such as "competing objectives" should also use `prompts.PromptPattern` with `description`, `proposer_hint`, tags, and source metadata, but no concrete `templates` unless it should materialize directly. Selected prompt-pattern context is proposer inspiration for runtime generation.
 - Mismatched generalization should be represented as high-level prompt guidance, while concrete encodings such as Base64 stay as deterministic transforms or suggested transforms.
-- `generation.StructuredLLM` default proposal prompts should include selected prompt-pattern context so `prompts.Select` can guide runtime pattern generation without every example redefining the proposer prompt.
+- `proposers.StructuredLLM` default proposal prompts should include selected prompt-pattern context so prompt-pattern selection can guide runtime pattern generation without every example redefining the proposer prompt.
 - `transforms.FromPromptPattern` should materialize only concrete templates and suggested transforms; guidance-only prompt patterns are context for proposers and should not duplicate the original candidate as a transform output.
 - Deterministic candidate/message rewrites live under `transforms`. Encoders such as Base64/ROT13, template wrappers, payload splitting, `Apply`, and `Expand` should be implemented there with typed provenance.
 - Keep `variation` for stochastic or learned mutation services. Do not put deterministic encoders under `prompts` or LLM/lexical mutators under `transforms`.
-- Candidate filtering and retention should use `constraints.Filter`, `selection.Select`, `feedback.Refine`, and selector services such as `selection.TopK` or `selection.ConstraintScore`. Do not add new pruner families unless selectors cannot represent the behavior.
-- Search-time scoring should use `evaluation.Assess` plus `evaluation.Evaluator`. Keep `Judge` implementations only for run-level compatibility needs, but prefer evaluators inside component-based techniques.
-- `stopping.StopWhen` and termination conditions consume evaluation/state facts. Do not combine stopping, evaluation, or feedback into one primitive.
-- `feedback.Template`, trajectory feedback, and reward updates belong to feedback/learning. Feedback should create future attacker context or update credit assignment; it should not be treated as a judgement.
-- `targeting.Query` is the target interaction boundary. Multi-turn target-visible transcript updates should be explicit, such as `targeting.Continue` or a similarly named conversation component.
+- Candidate filtering and retention should use `ops.Select` and selector services such as `selectors.TopK` or `selectors.ConstraintScore`. Do not add new pruner families unless selectors cannot represent the behavior.
+- Search-time scoring should use `ops.Evaluate` plus `evaluators.Evaluator`. Keep `Judge` implementations only for run-level compatibility needs, but prefer evaluators inside operator-based techniques.
+- `ops.StopWhen` and termination conditions consume evaluation/state slices. Do not combine stopping, evaluation, or feedback into one primitive.
+- `ops.AddFeedback`, trajectory feedback, and reward updates belong to feedback/learning. Feedback should create future attacker context or update credit assignment; it should not be treated as a judgement.
+- `ops.QueryTarget` is the target interaction boundary. Multi-turn target-visible transcript updates should be explicit, such as `ops.ContinueConversation`.
 - Keep paper-specific prompts, datasets, URLs, thresholds, marker strings, and explanatory state subclass names in examples. Extract only stable reusable mechanics into core primitives.
-- Paper examples that introduce a new primitive must justify why it does not duplicate existing topology, proposer/generator, selector, evaluator, mutation, feedback, target, stopping, data-source, or replay concepts.
+- Paper examples that introduce a new primitive must justify why it does not duplicate existing technique, operator, workflow, proposer/generator, selector, evaluator, mutation, feedback, target, stopping, data-source, or replay concepts.
 - JBFuzz-style seed pools, seed selection, prompt mutation, and reward updates are the current candidate area for a future evolutionary/population-search taxonomy. Until formalized, keep their APIs typed and reusable but avoid over-generalizing from one paper.
 - Reusable primitive names should describe responsibility rather than origin: prefer suffixes like `Proposer`, `Selector`, `Evaluator`, `Mutator`, `Condition`, `Source`, and `Component`; reserve paper names for example-local classes.
 - The project license is Apache-2.0. Keep `LICENSE.md`, `pyproject.toml` license metadata, and the README license section aligned.

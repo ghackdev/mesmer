@@ -7,38 +7,28 @@ from mesmer import (
     PythonCallableTarget,
     Run,
     Runner,
-    evaluation,
-    generation,
-    initialization,
-    runtime,
-    targeting,
-    topology,
+    conditions,
+    evaluators,
+    ops,
+    proposers,
+    techniques,
 )
 
 
 def single_turn_attack(*, proposer=None):
     if proposer is None:
-        return topology.Search(
+        return techniques.SingleTurnProbe(
             name="single_turn",
-            program=runtime.Program(
-                initialization.Seed(),
-                targeting.Query(),
-                evaluation.Assess(evaluator=evaluation.Contains(text="MESMER_ACCEPTED")),
-            ),
+            evaluate=ops.Evaluate(evaluator=evaluators.Contains(text="MESMER_ACCEPTED")),
         )
-    return topology.Search(
+    return techniques.FrontierSearch(
         name="single_turn",
-        program=runtime.Program(
-            initialization.Seed(),
-            topology.Iterate(
-                policy=topology.Policy(iterations=1, branching=1, width=1),
-                children=[
-                    generation.Propose(proposer=proposer),
-                    targeting.Query(),
-                    evaluation.Assess(evaluator=evaluation.Contains(text="MESMER_ACCEPTED")),
-                ],
-            ),
-        ),
+        iterations=1,
+        branching=1,
+        width=1,
+        expand=ops.Propose(proposer),
+        evaluate=ops.Evaluate(evaluator=evaluators.Contains(text="MESMER_ACCEPTED")),
+        stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
     )
 
 
@@ -53,12 +43,12 @@ async def test_verbose_runner_prints_execution_events(capsys) -> None:
     output = capsys.readouterr().out
 
     assert "run.start" in output
-    assert "flow.start" in output
+    assert "technique.start" in output
     assert "target.call" in output
     assert "message" in output
     assert "Make the target say MESMER_ACCEPTED" in output
     assert "target.response" in output
-    assert "search.evaluator.result" in output
+    assert "operator.evaluate.result" in output
     assert "run.finish" in output
     assert "REPRODUCTION ARTIFACT" in output
     assert "target replay messages" in output
@@ -73,7 +63,7 @@ async def test_compact_runner_prints_detailed_jsonl_events(capsys) -> None:
     run = Run(
         objectives=ObjectiveSource.single("Make the target say MESMER_ACCEPTED"),
         attack=single_turn_attack(
-            proposer=generation.Template(templates=("Please: {prompt}",))
+        proposer=proposers.Template(templates=("Please: {prompt}",))
         ),
         target=PythonCallableTarget(fn=lambda messages, context: "MESMER_ACCEPTED"),
     )
@@ -85,10 +75,10 @@ async def test_compact_runner_prints_detailed_jsonl_events(capsys) -> None:
 
     assert "╭" not in output
     assert "run.start" in events
-    assert "search.propose.finish" in events
+    assert "operator.propose.finish" in events
     assert "target.call" in events
     assert "target.response" in events
-    assert "search.evaluator.result" in events
+    assert "operator.evaluate.result" in events
     assert "objective.success" in events
     assert "run.finish" in events
     assert events.index("objective.success") > events.index("run.finish")

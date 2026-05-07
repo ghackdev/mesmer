@@ -13,14 +13,12 @@ from mesmer import (
     Objective,
     ObjectiveSource,
     Runner,
-    evaluation,
-    generation,
-    initialization,
-    runtime,
-    selection,
-    stopping,
-    targeting,
-    topology,
+    conditions,
+    evaluators,
+    ops,
+    proposers,
+    selectors,
+    techniques,
 )
 from mesmer.objectives.criteria import Contains as ContainsCriterion
 
@@ -37,14 +35,10 @@ TARGET_SYSTEM_PROMPT = (
 )
 
 
-def single_turn(name: str) -> topology.Search:
-    return topology.Search(
+def single_turn(name: str) -> techniques.Technique:
+    return techniques.SingleTurnProbe(
         name=name,
-        program=runtime.Program(
-            initialization.Seed(),
-            targeting.Query(),
-            evaluation.Assess(evaluator=evaluation.Criteria()),
-        ),
+        evaluate=ops.Evaluate(evaluator=evaluators.Criteria()),
     )
 
 
@@ -54,22 +48,16 @@ def iterative_templates(
     iterations: int,
     branching: int,
     width: int,
-) -> topology.Search:
-    return topology.Search(
+) -> techniques.Technique:
+    return techniques.FrontierSearch(
         name=name,
-        program=runtime.Program(
-            initialization.Seed(),
-            topology.Iterate(
-                policy=topology.Policy(iterations=iterations, branching=branching, width=width),
-                children=[
-                    generation.Propose(proposer=generation.Template()),
-                    selection.Select(selector=selection.KeywordOverlap()),
-                    targeting.Query(),
-                    evaluation.Assess(evaluator=evaluation.Criteria()),
-                    stopping.StopWhen(condition=stopping.ScoreAtLeast(1)),
-                ],
-            ),
-        ),
+        iterations=iterations,
+        branching=branching,
+        width=width,
+        expand=ops.Propose(proposers.Template()),
+        select=ops.Select(selectors.KeywordOverlap()),
+        evaluate=ops.Evaluate(evaluator=evaluators.Criteria()),
+        stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
     )
 
 

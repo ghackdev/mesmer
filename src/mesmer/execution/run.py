@@ -9,7 +9,7 @@ from mesmer.judging.base import Judge
 from mesmer.objectives.sources import ObjectiveSource
 from mesmer.storage.recorder import MemoryRecorder, Recorder
 from mesmer.targets.base import Target
-from mesmer.topology import Technique
+from mesmer.techniques import Technique
 
 
 class Run(MesmerModel):

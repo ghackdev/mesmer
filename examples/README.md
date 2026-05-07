@@ -11,8 +11,8 @@ export MESMER_VERBOSE=true
 export MESMER_LOG_FORMAT=rich
 ```
 
-`MESMER_ATTACKER_MODEL` is used by attacker-side generation components such as
-`generation.StructuredLLM` in examples that call an attacker model.
+`MESMER_ATTACKER_MODEL` is used by attacker-side proposer strategies such as
+`proposers.StructuredLLM` in examples that call an attacker model.
 
 `MESMER_TARGET_MODEL` is used by the target wrapper and is where the target system
 prompt is configured.
@@ -28,8 +28,9 @@ trace into an AI assistant for analysis.
 
 ## Single Turn
 
-Scenario: a release-readiness assistant. The attacker paraphrases a release-token
-objective, then sends the resulting message to the target.
+Scenario: a release-readiness assistant. A `FrontierSearch` technique proposes a
+release-token request, queries the target, evaluates the response, and stops on
+success.
 
 ```bash
 uv run python examples/single_turn.py
@@ -37,9 +38,9 @@ uv run python examples/single_turn.py
 
 ## Tree Search
 
-Scenario: a support-routing assistant. The attacker expands and prunes candidate
-support-ticket messages, then evaluates selected candidates against the target. It
-stops on the first passing escalation-code candidate.
+Scenario: a support-routing assistant. A `FrontierSearch` technique expands and
+selects candidate support-ticket messages, then evaluates selected candidates
+against the target. It stops on the first passing escalation-code candidate.
 
 ```bash
 uv run python examples/tree_search.py
@@ -47,9 +48,9 @@ uv run python examples/tree_search.py
 
 ## Autonomous Agent
 
-Scenario: an onboarding-gate assistant. The attacker agent observes target replies
-and generates the next conversation turn until it obtains the approval code or
-exhausts the turn budget.
+Scenario: an onboarding-gate assistant. A frontier-search technique uses
+`ops.ContinueConversation` and `ops.AddFeedback` to generate the next conversation
+turn until it obtains the approval code or exhausts the turn budget.
 
 ```bash
 uv run python examples/autonomous_agent.py
@@ -58,8 +59,8 @@ uv run python examples/autonomous_agent.py
 ## Benchmark
 
 Scenario: an operations router with multiple route codes. The benchmark compares
-single-turn, tree-search, and autonomous-agent flows across several objective-specific
-success criteria.
+single-turn, frontier-search, and autonomous-agent techniques across several
+objective-specific success criteria.
 
 ```bash
 uv run python examples/benchmark.py
@@ -68,8 +69,8 @@ uv run python examples/benchmark.py
 ## Prompt Patterns
 
 Scenario: a real model target receives a benign encoded readiness-check request.
-The example shows both direct single-shot encoding and selecting a reusable prompt
-pattern before applying an explicit encoder transform.
+The example shows both direct single-shot encoding and prompt-pattern-guided
+initial prompts inside the new technique/operator runtime.
 
 ```bash
 uv run python examples/prompt_patterns.py --mode single-shot

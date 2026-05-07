@@ -1,24 +1,45 @@
 ---
-title: Component Runtime
-description: Learn how Mesmer models attack workflows as ordered runtime components and typed state patches.
+title: Operator Runtime
+description: Learn how Mesmer models attack workflows as typed state transitions and replayable operator traces.
 ---
 
-`Program`, `Component`, `ContainerComponent`, `RuntimeState`, `StatePatch`, `StateFact`, and `topology.Search` form the canonical runtime for new techniques.
+Mesmer's durable runtime kernel is:
 
-The runtime favors explicit composition:
+```text
+State + Operator + Transition + Workflow
+```
 
-- `initialization.Seed` creates the initial frontier.
-- `topology.Iterate` expresses loop shape and budget policy.
-- `generation.Propose` creates candidate trajectories through a `Proposer`.
-- `constraints.Filter` runs ordered candidate constraints wherever it appears in the tree.
-- `selection.Select` retains candidates through selectors such as `TopK`.
-- `targeting.Query` is the target-call boundary.
-- `evaluation.Assess` writes evaluation facts.
-- `feedback.Refine` turns observations into attacker context.
-- `stopping.StopWhen` consumes state facts and stop conditions.
+Techniques assemble operators into workflows. Operators are the reusable extension point.
 
-Runtime state is typed enough to preserve replay-critical information without forcing every technique into a rigid class hierarchy.
+Common operators include:
+
+- `ops.SeedFromObjective` creates the initial frontier.
+- `ops.Propose` creates candidate trajectories through a `proposers.Proposer`.
+- `ops.Select` retains candidates through selectors such as `selectors.TopK`.
+- `ops.QueryTarget` is the target-call boundary.
+- `ops.Evaluate` writes evaluation results through `evaluators.Evaluator`.
+- `ops.AddFeedback` turns observations into attacker context.
+- `ops.StopWhen` consumes evaluations through `conditions.Condition`.
+- `ops.GenerateFromPopulation` and `ops.AssignReward` support population-style fuzzing.
+
+Runtime state is typed enough to preserve replay-critical information without forcing every technique into a rigid class hierarchy. Built-in techniques infer their required state slices from operator declarations.
+
+```python
+attack = techniques.FrontierSearch(
+    name="release_token",
+    iterations=3,
+    branching=2,
+    width=2,
+    expand=ops.Propose(proposers.Template()),
+    evaluate=ops.Evaluate(evaluators.Contains(text="RELEASE_READY")),
+    stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
+)
+
+attack.state_schema()
+attack.workflow_graph()
+attack.describe()
+```
 
 ## Design Rule
 
-New algorithm topology should normally be expressed as ordered components inside `Program`. Avoid adding one-off flow classes when components can express the control shape.
+Prefer the smallest extension that explains the behavior: strategy, then operator, then workflow block, then technique. Add a technique only when the algorithm skeleton is meaningfully different.

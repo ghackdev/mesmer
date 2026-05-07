@@ -66,12 +66,12 @@ Core papers:
 
 What to extract for Mesmer:
 
-- `generation.Propose`
-- `targeting.Query`
-- `evaluation.Assess`
+- `ops.Propose`
+- `ops.QueryTarget`
+- `ops.Evaluate`
 - `feedback.Refine`
 - `selection.TopK`
-- `topology.Iterate`
+- `techniques.FrontierSearch`
 
 ## 2024: Evaluation Becomes Serious
 
@@ -158,4 +158,3 @@ For a smooth learning path, read and write in this order:
 7. Best-of-N Jailbreaking
 8. JBFuzz / JCB
 9. Large Reasoning Models Are Autonomous Jailbreak Agents
-

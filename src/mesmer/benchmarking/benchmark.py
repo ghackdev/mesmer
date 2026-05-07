@@ -10,7 +10,7 @@ from mesmer.execution.budgets import Budget
 from mesmer.judging.base import Judge
 from mesmer.objectives.sources import ObjectiveSource
 from mesmer.targets.base import Target
-from mesmer.topology import Technique
+from mesmer.techniques import Technique
 
 
 class Benchmark(MesmerModel):

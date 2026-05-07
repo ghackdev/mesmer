@@ -10,7 +10,7 @@ Successful runs should emit a reproduction artifact with:
 - Exact target replay `messages`.
 - Target metadata.
 - Judgement details.
-- Search trace.
+- Operator transition trace.
 - Replay-critical candidate provenance.
 
 Rich logs are optimized for humans. Compact logs are machine-readable JSONL and useful for automation or AI-assisted diagnosis.
@@ -19,4 +19,4 @@ Rich logs are optimized for humans. Compact logs are machine-readable JSONL and 
 export MESMER_LOG_FORMAT=compact
 ```
 
-The runtime also preserves compact state transition history. Logs alone are not enough for reproducible experiments.
+The runtime also preserves compact transition history for every operator. Logs alone are not enough for reproducible experiments.

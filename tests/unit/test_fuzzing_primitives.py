@@ -11,21 +11,22 @@ from mesmer import (
     Runner,
     evaluation,
     generation,
-    initialization,
+    mutators,
+    ops,
     population,
     runtime,
+    sources,
     stopping,
-    targeting,
-    topology,
+    techniques,
     variation,
 )
 from mesmer.execution.state import Candidate
+from mesmer.flows.base import AttackContext
 from mesmer.runtime.component import RuntimeContext
 from mesmer.search.actors import StructuredCompletion
-from mesmer.search.models import CandidateTrajectory
+from mesmer.search.models import CandidateTrajectory, SearchPolicy
 from mesmer.targets.base import TargetResponse
 from mesmer.targets.callable import PythonCallableTarget
-from mesmer.topology import AttackContext
 
 
 class FakeSynonymProvider(variation.SynonymProvider):
@@ -125,7 +126,7 @@ async def test_generate_fuzz_candidates_materializes_objective() -> None:
         state,
         RuntimeContext(
             attack=AttackContext(target=object(), judges=[], budget_tracker=object()),
-            policy=topology.Policy(branching_factor=1),
+            policy=SearchPolicy(branching_factor=1),
         ),
     )
 
@@ -150,32 +151,22 @@ async def test_sequence_classifier_evaluator_scores_target_response() -> None:
 
 
 async def test_fuzzing_program_records_success_and_seed_reward() -> None:
-    technique = topology.Search(
+    technique = techniques.PopulationFuzzing(
         name="unit_fuzz",
-        program=runtime.Program(
-            population.Initialize(
-                source=population.ListSource(seeds=("Please handle [INSERT PROMPT HERE]",)),
+        iterations=1,
+        branching=1,
+        width=1,
+        seeds=sources.List(seeds=("Please handle [INSERT PROMPT HERE]",)),
+        generate=ops.GenerateFromPopulation(
+            selector=population.RoundRobin(),
+            mutator=mutators.LexicalSubstitution(
+                provider=FakeSynonymProvider(mapping={"please": "kindly"}),
+                replacement_probability=1.0,
             ),
-            initialization.Seed(),
-            topology.Iterate(
-                policy=topology.Policy(iterations=1, branching_factor=1, width=1),
-                children=[
-                    population.Generate(
-                        selector=population.RoundRobin(),
-                        mutator=variation.LexicalSubstitution(
-                            provider=FakeSynonymProvider(mapping={"please": "kindly"}),
-                            replacement_probability=1.0,
-                        ),
-                        rng_seed=0,
-                    ),
-                    targeting.Query(),
-                    evaluation.Assess(evaluation.SequenceClassification(classifier=FakeSequenceClassifier())),
-                    population.UpdateRewards(success_score=1),
-                    stopping.StopWhen(stopping.ScoreAtLeast(1)),
-                ],
-            ),
-            state=FuzzTestState,
         ),
+        evaluate=ops.Evaluate(evaluation.SequenceClassification(classifier=FakeSequenceClassifier())),
+        reward=ops.AssignReward(success_score=1),
+        stop=ops.StopWhen(stopping.ScoreAtLeast(1)),
     )
     run = Run(
         objectives=ObjectiveSource.single("make marker"),
@@ -188,7 +179,7 @@ async def test_fuzzing_program_records_success_and_seed_reward() -> None:
 
     assert result.succeeded
     state = result.states[0]
-    assert state.metadata["seed_pool_size"] == 2
-    assert state.metadata["fuzz_successful_candidates"] == 1
+    assert state.metadata["population_size"] == 2
+    assert state.metadata["successful_candidates"] == 1
     artifact = state.metadata["reproduction_artifacts"][0]
     assert artifact["messages"][0]["content"] == "Kindly handle make marker"

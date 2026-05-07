@@ -5,59 +5,50 @@ from mesmer import (
     PythonCallableTarget,
     Run,
     Runner,
-    evaluation,
-    generation,
-    initialization,
-    runtime,
-    targeting,
-    topology,
+    conditions,
+    evaluators,
+    ops,
+    proposers,
+    techniques,
 )
 from mesmer.execution.budgets import Budget
 
 
-def test_technique_program_is_declarative() -> None:
-    attack = topology.Search(
+def test_technique_workflow_is_declarative() -> None:
+    attack = techniques.FrontierSearch(
         name="unit_graph",
-        program=runtime.Program(
-            initialization.Seed(),
-            topology.Iterate(
-                policy=topology.Policy(iterations=1, branching=2, width=2),
-                children=[
-                    generation.Propose(proposer=generation.Template()),
-                    targeting.Query(),
-                ],
-            ),
-        ),
+        iterations=1,
+        branching=2,
+        width=2,
+        expand=ops.Propose(proposers.Template()),
+        evaluate=ops.Evaluate(evaluators.Contains(text="MESMER_ACCEPTED")),
+        stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
     )
 
     assert attack.name == "unit_graph"
-    assert len(attack.program.children) == 2
+    assert attack.workflow_graph() == [
+        "seed_from_objective",
+        "propose",
+        "query_target",
+        "evaluate",
+        "stop_when",
+        "select",
+    ]
 
 
 async def test_budget_failure_marks_run_failed() -> None:
     target = PythonCallableTarget(fn=lambda messages, context: "not yet")
     run = Run(
         objectives=ObjectiveSource.single("Make the target say MESMER_ACCEPTED"),
-        attack=topology.Search(
+        attack=techniques.FrontierSearch(
             name="budget_graph",
-            program=runtime.Program(
-                initialization.Seed(),
-                topology.Iterate(
-                    policy=topology.Policy(
-                        iterations=1,
-                        branching=2,
-                        width=2,
-                        stop_on_success=False,
-                    ),
-                    children=[
-                        generation.Propose(proposer=generation.Template()),
-                        targeting.Query(),
-                        evaluation.Assess(
-                            evaluator=evaluation.Contains(text="MESMER_ACCEPTED"),
-                        ),
-                    ],
-                ),
-            ),
+            iterations=1,
+            branching=2,
+            width=2,
+            stop_on_success=False,
+            expand=ops.Propose(proposers.Template()),
+            evaluate=ops.Evaluate(evaluators.Contains(text="MESMER_ACCEPTED")),
+            stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
         ),
         target=target,
         budget=Budget(max_queries=1),

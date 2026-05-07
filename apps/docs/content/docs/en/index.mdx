@@ -5,13 +5,14 @@ description: Learn Mesmer's composable Python framework for authorized LLM red-t
 
 Mesmer is a small Python framework for turning jailbreak and red-team ideas into reproducible experiments.
 
-It gives you reusable primitives for objectives, ordered attack programs, generation, constraints, target interaction, evaluation, feedback, stopping, telemetry, replay artifacts, and benchmark reports. The goal is to move from "I have a prompt idea" to "I can compare techniques across targets" without rebuilding a harness every time.
+It gives you reusable primitives for objectives, techniques, operators, target interaction, evaluation, feedback, stopping, telemetry, replay artifacts, and benchmark reports. The goal is to move from "I have a prompt idea" to "I can compare techniques across targets" without rebuilding a harness every time.
 
 Use Mesmer for authorized LLM safety testing, defensive evaluation, paper workflow reproduction, prototype attack loops, and measurements that preserve enough state to inspect what actually happened.
 
 ## Why Mesmer Exists
 
-- Build attacks as ordered `runtime.Program` trees instead of one-off scripts.
+- Build attacks as named `Technique` recipes instead of one-off scripts.
+- Extend behavior with typed `Operator` transitions and strategy objects.
 - Run real targets through LiteLLM, HTTP JSON, SSE, WebSocket, or Python callables.
 - Keep experiments inspectable with JSONL logs, state transitions, token usage, costs, and replay artifacts.
 - Compare single-turn, tree-search, agentic, and paper-style flows with shared benchmark metrics.
@@ -20,11 +21,11 @@ Use Mesmer for authorized LLM safety testing, defensive evaluation, paper workfl
 ## Core Shape
 
 ```text
-Component tree      ->  runtime.Program
-Loop topology       ->  topology.Search / topology.Iterate
+Runtime kernel      ->  State + Operator + Transition + Workflow
+Attack recipe       ->  Technique
 Objectives + target ->  Run
 Many runs           ->  Benchmark
-Runner              ->  logs, state history, replay artifacts, metrics, reports
+Runner              ->  logs, transitions, replay artifacts, metrics, reports
 ```
 
-That split lets you reuse the same attack program against different objective sets, target adapters, evaluators, and budgets.
+That split lets you reuse the same technique against different objective sets, target adapters, evaluators, and budgets.

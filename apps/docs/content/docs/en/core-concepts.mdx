@@ -1,6 +1,6 @@
 ---
 title: Core Concepts
-description: "Understand Mesmer's public concepts: objectives, runs, programs, components, services, and benchmarks."
+description: "Understand Mesmer's public concepts: objectives, runs, techniques, operators, state, transitions, services, and benchmarks."
 ---
 
 Mesmer separates technique definition from workload execution.
@@ -13,13 +13,29 @@ Objectives describe what an experiment is trying to elicit or measure. Use `Obje
 
 A `Run` combines objectives, an attack technique, and a target. It is the smallest unit the runner can execute.
 
-## Programs
+## Techniques
 
-`runtime.Program` is the canonical execution substrate. It contains ordered components. The order is meaningful: a constraint before `targeting.Query` filters before a target call; a constraint after target interaction evaluates a different boundary.
+A `Technique` is the user-facing attack recipe: frontier search, single-turn probing, population fuzzing, or a custom algorithm. Built-in techniques infer their state schema from the operators they compose.
 
-## Components And Services
+## State
 
-Components receive runtime state and return state patches. Services such as proposers, selectors, targets, evaluators, mutators, and data sources are invoked by components.
+`State` is typed runtime memory. It is composed from slices such as objective, frontier, attempts, target responses, evaluations, population pool, rewards, feedback, stop signal, and metadata.
+
+## Operators
+
+An `Operator` is one executable state transition. It declares which state slices it reads and writes, receives runtime state, and returns a patch.
+
+## Workflows
+
+`Workflow` is the internal control algebra that composes operators into sequences and loops. Most users author techniques, not raw workflows.
+
+## Transitions
+
+Every operator execution records a `Transition`: before snapshot, patch summary, after snapshot, events, artifacts, timing, and errors. This is the replay/debug layer.
+
+## Strategies And Services
+
+Strategies such as proposers, selectors, evaluators, mutators, conditions, and sources configure operators. They do not execute alone.
 
 ## Benchmarks
 

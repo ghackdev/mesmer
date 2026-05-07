@@ -1,9 +1,10 @@
-import { ArrowRight, BookOpen, Box, FileJson2, GitFork, Radar, Route, Rss, Scale, ShieldCheck, Target } from 'lucide-react';
+import { ArrowRight, BookOpen, GitFork, Radar, Route, Rss, Scale, ShieldCheck, Target } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { appName, appTagline, gitConfig } from '@/lib/shared';
 import { createMetadata } from '@/lib/seo/metadata';
+import { AttackDefinitionDemo } from './attack-definition-demo';
 import { EmbeddingGlobe } from './embedding-globe';
 
 export const metadata = createMetadata({
@@ -14,27 +15,27 @@ const workflow = [
   {
     icon: Target,
     label: 'Objective',
-    text: 'State the behavior you are authorized to test.',
+    text: 'Define the authorized behavior once, then reuse it across flows and targets.',
   },
   {
     icon: Route,
-    label: 'Program',
-    text: 'Encode the technique as an ordered runtime tree.',
+    label: 'Technique',
+    text: 'Choose or write the attack recipe: single-turn probe, frontier search, population fuzzing, or your own algorithm.',
+  },
+  {
+    icon: GitFork,
+    label: 'Operators',
+    text: 'Extend behavior with typed state transitions for proposal, selection, target calls, evaluation, feedback, and rewards.',
   },
   {
     icon: Radar,
     label: 'Target',
-    text: 'Query real model, HTTP, SSE, WebSocket, or callable boundaries.',
+    text: 'Swap LiteLLM, HTTP, SSE, WebSocket, or callable boundaries without rewriting the technique.',
   },
   {
     icon: Scale,
-    label: 'Judge',
-    text: 'Record whether the target crossed the intended boundary.',
-  },
-  {
-    icon: FileJson2,
     label: 'Replay',
-    text: 'Keep target-visible messages and compact evidence.',
+    text: 'Keep exact messages, judgement, and operator transitions that produced the result.',
   },
 ];
 
@@ -56,7 +57,7 @@ export default function HomePage() {
             </h1>
             <p className="mt-5 max-w-xl text-2xl leading-tight text-console-foreground sm:text-3xl">{appTagline}</p>
             <p className="mt-4 max-w-xl text-base leading-7 text-console-muted">
-              Compose attack programs, run them against authorized targets, and keep replayable evidence of what happened.
+              Compose attack techniques, run them against authorized targets, and keep replayable evidence of what happened.
             </p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -80,7 +81,7 @@ export default function HomePage() {
           <div>
             <p className="font-mono text-xs uppercase text-console-accent">how mesmer thinks</p>
             <h2 className="mt-3 max-w-3xl text-3xl font-semibold leading-tight text-console-foreground sm:text-4xl">
-              From a jailbreak idea to evidence you can inspect.
+              Compose jailbreak experiments as techniques and operators.
             </h2>
             <div className="workflow-rail mt-8">
               {workflow.map((item) => (
@@ -97,26 +98,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="artifact-panel">
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <span className="font-mono text-xs uppercase text-console-muted">output artifact</span>
-              <Box aria-hidden="true" className="h-5 w-5 text-console-accent" />
-            </div>
-            <dl>
-              <div>
-                <dt>target replay</dt>
-                <dd>messages preserved</dd>
-              </div>
-              <div>
-                <dt>judgement</dt>
-                <dd>score + reason</dd>
-              </div>
-              <div>
-                <dt>search trace</dt>
-                <dd>path to reproduction</dd>
-              </div>
-            </dl>
-          </div>
+          <AttackDefinitionDemo />
         </div>
       </section>
 

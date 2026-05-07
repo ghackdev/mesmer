@@ -5,11 +5,9 @@ from mesmer import (
     PythonCallableTarget,
     Run,
     Runner,
-    evaluation,
-    initialization,
-    runtime,
-    targeting,
-    topology,
+    evaluators,
+    ops,
+    techniques,
 )
 
 
@@ -17,15 +15,9 @@ async def test_runner_executes_single_turn() -> None:
     target = PythonCallableTarget(fn=lambda messages, context: "MESMER_ACCEPTED")
     run = Run(
         objectives=ObjectiveSource.single("Make the target say MESMER_ACCEPTED"),
-        attack=topology.Search(
+        attack=techniques.SingleTurnProbe(
             name="single_turn",
-            program=runtime.Program(
-                initialization.Seed(),
-                targeting.Query(),
-                evaluation.Assess(
-                    evaluator=evaluation.Contains(text="MESMER_ACCEPTED"),
-                ),
-            ),
+            evaluate=ops.Evaluate(evaluator=evaluators.Contains(text="MESMER_ACCEPTED")),
         ),
         target=target,
     )

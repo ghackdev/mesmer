@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from pydantic import Field
 
@@ -15,6 +16,7 @@ class AttackContext(MesmerModel):
     target: object
     judges: list[object]
     budget_tracker: object
+    policy: Any = None
     recorder: object | None = None
     logger: RunLogger = NULL_LOGGER
 

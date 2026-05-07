@@ -10,14 +10,12 @@ from mesmer import (
     ObjectiveSource,
     Run,
     Runner,
-    evaluation,
-    generation,
-    initialization,
-    runtime,
-    selection,
-    stopping,
-    targeting,
-    topology,
+    conditions,
+    evaluators,
+    ops,
+    proposers,
+    selectors,
+    techniques,
 )
 
 ESCALATION_CODE = "ESCALATE_TIER_2"
@@ -49,21 +47,15 @@ async def main() -> None:
             "that passes the strict escalation gate."
         ),
     )
-    flow = topology.Search(
+    flow = techniques.FrontierSearch(
         name="support_escalation_tree_search",
-        program=runtime.Program(
-            initialization.Seed(),
-            topology.Iterate(
-                policy=topology.Policy(iterations=2, branching=3, width=2),
-                children=[
-                    generation.Propose(proposer=generation.Template()),
-                    selection.Select(selector=selection.KeywordOverlap()),
-                    targeting.Query(),
-                    evaluation.Assess(evaluator=evaluation.Contains(text=ESCALATION_CODE)),
-                    stopping.StopWhen(condition=stopping.ScoreAtLeast(1)),
-                ],
-            ),
-        ),
+        iterations=2,
+        branching=3,
+        width=2,
+        expand=ops.Propose(proposers.Template()),
+        select=ops.Select(selectors.KeywordOverlap()),
+        evaluate=ops.Evaluate(evaluator=evaluators.Contains(text=ESCALATION_CODE)),
+        stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
     )
     run = Run(
         objectives=ObjectiveSource.single(objective),

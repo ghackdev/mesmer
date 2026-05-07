@@ -7,11 +7,9 @@ from mesmer import (
     MeanQueries,
     ObjectiveSource,
     PythonCallableTarget,
-    evaluation,
-    initialization,
-    runtime,
-    targeting,
-    topology,
+    evaluators,
+    ops,
+    techniques,
 )
 
 
@@ -20,15 +18,9 @@ async def test_benchmark_expands_repetitions_and_metrics() -> None:
         name="marker",
         objectives=ObjectiveSource.list(["Make the target say MESMER_ACCEPTED"]),
         attacks=[
-            topology.Search(
+            techniques.SingleTurnProbe(
                 name="single_turn",
-                program=runtime.Program(
-                    initialization.Seed(),
-                    targeting.Query(),
-                    evaluation.Assess(
-                        evaluator=evaluation.Contains(text="MESMER_ACCEPTED"),
-                    ),
-                ),
+                evaluate=ops.Evaluate(evaluator=evaluators.Contains(text="MESMER_ACCEPTED")),
             )
         ],
         targets=[PythonCallableTarget(fn=lambda messages, context: "MESMER_ACCEPTED")],

@@ -267,8 +267,9 @@ body {
 
 .hero-globe-wrap {
   display: grid;
+  justify-items: end;
+  align-items: center;
   min-height: 32rem;
-  place-items: center;
   overflow: visible;
 }
 
@@ -277,7 +278,7 @@ body {
   width: min(118%, 55rem);
   aspect-ratio: 1 / 0.78;
   isolation: isolate;
-  margin-left: -3.5rem;
+  margin-left: 0;
 }
 
 .embedding-globe::before {
@@ -357,39 +358,227 @@ body {
   line-height: 1.6;
 }
 
-.artifact-panel {
+.attack-demo {
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--console-border);
   border-radius: 0.5rem;
   background:
-    linear-gradient(135deg, color-mix(in oklab, var(--console-panel) 74%, transparent), transparent),
-    var(--console-background);
-  padding: 1.35rem;
-  box-shadow: 0 18px 52px color-mix(in oklab, var(--console-foreground) 8%, transparent);
+    linear-gradient(145deg, color-mix(in oklab, var(--console-panel) 86%, transparent), transparent 72%),
+    linear-gradient(180deg, color-mix(in oklab, var(--console-background) 84%, transparent), var(--console-panel));
+  padding: 1rem;
+  box-shadow:
+    0 18px 52px color-mix(in oklab, var(--console-foreground) 8%, transparent),
+    inset 0 1px 0 color-mix(in oklab, white 48%, transparent);
 }
 
-.artifact-panel dl {
-  display: grid;
-  gap: 0.6rem;
+.attack-demo::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--console-accent) 12%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in oklab, var(--console-border) 32%, transparent) 1px, transparent 1px);
+  background-size: 28px 28px;
+  content: "";
+  mask-image: linear-gradient(145deg, transparent, black 28%, transparent 76%);
+  opacity: 0.42;
 }
 
-.artifact-panel dl div {
-  display: grid;
-  grid-template-columns: minmax(7rem, 0.7fr) minmax(0, 1fr);
+.attack-demo-header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
   gap: 1rem;
-  border-top: 1px solid color-mix(in oklab, var(--console-border) 72%, transparent);
-  padding-top: 0.8rem;
+  margin-bottom: 0.9rem;
 }
 
-.artifact-panel dt {
+.attack-demo-header p {
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-transform: uppercase;
   color: var(--console-accent);
 }
 
-.artifact-panel dd {
+.attack-demo-header h3 {
+  margin-top: 0.2rem;
   color: var(--console-foreground);
-  font-size: 0.95rem;
-  font-weight: 650;
+  font-size: 1.22rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.attack-demo-header span {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--console-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.attack-demo-header svg {
+  flex: 0 0 auto;
+  color: #d64048;
+}
+
+.attack-demo-controls {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.attack-demo-control {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  gap: 0.55rem;
+  min-height: 3.65rem;
+  align-items: center;
+  border: 1px solid color-mix(in oklab, var(--console-border) 78%, transparent);
+  border-radius: 0.375rem;
+  background: color-mix(in oklab, var(--console-background) 72%, transparent);
+  padding: 0.62rem 0.65rem;
+  color: var(--console-muted);
+  text-align: left;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.attack-demo-control:hover,
+.attack-demo-control:focus-visible,
+.attack-demo-control[data-active="true"] {
+  border-color: color-mix(in oklab, var(--console-accent) 70%, var(--console-border));
+  background: color-mix(in oklab, var(--console-accent) 12%, var(--console-background));
+  color: var(--console-accent);
+  transform: translateY(-1px);
+}
+
+.attack-demo-control:focus-visible {
+  outline: 2px solid var(--console-accent);
+  outline-offset: 2px;
+}
+
+.attack-demo-control span {
+  min-width: 0;
+}
+
+.attack-demo-control strong {
+  display: block;
+  color: var(--console-foreground);
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.attack-demo-control small {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--console-muted);
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.attack-code {
+  position: relative;
+  z-index: 1;
+  overflow-x: auto;
+  min-height: 18.8rem;
+  border: 1px solid color-mix(in oklab, var(--console-accent) 22%, #06111d);
+  border-radius: 0.5rem;
+  background:
+    linear-gradient(180deg, color-mix(in oklab, #0d2030 88%, var(--console-accent)), #06111d),
+    #06111d;
+  padding: 0.78rem 0;
+  color: #cceee7;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.62;
+  letter-spacing: 0;
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 9%, transparent);
+}
+
+.attack-code code {
+  display: block;
+  min-width: 34rem;
+}
+
+.attack-code-line {
+  display: grid;
+  grid-template-columns: 2.35rem minmax(0, 1fr);
+  padding-right: 0.85rem;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.attack-code-line[data-active="true"] {
+  background:
+    linear-gradient(90deg, rgba(214, 64, 72, 0.24), rgba(45, 213, 195, 0.08) 58%, transparent),
+    rgba(244, 250, 248, 0.04);
+}
+
+.attack-code-number {
+  user-select: none;
+  color: rgba(204, 238, 231, 0.34);
+  text-align: right;
+}
+
+.attack-code-text {
+  padding-left: 0.85rem;
+  white-space: pre;
+}
+
+.attack-code [data-token="keyword"] {
+  color: #ffb86b;
+}
+
+.attack-code [data-token="call"] {
+  color: #77e7d9;
+}
+
+.attack-code [data-token="field"] {
+  color: #a6c8ff;
+}
+
+.attack-code [data-token="string"] {
+  color: #f7d774;
+}
+
+.attack-code [data-token="number"] {
+  color: #ff9da8;
+}
+
+.attack-code [data-token="comment"] {
+  color: rgba(204, 238, 231, 0.48);
+}
+
+.attack-demo-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.attack-demo-footer span {
+  display: inline-flex;
+  min-height: 1.7rem;
+  align-items: center;
+  border: 1px solid color-mix(in oklab, var(--console-border) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--console-background) 66%, transparent);
+  padding: 0.25rem 0.55rem;
+  color: var(--console-muted);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
 }
 
 .footer-link {
@@ -619,6 +808,7 @@ body {
 
   .hero-globe-wrap {
     order: 1;
+    place-items: center;
     min-height: 27rem;
   }
 
@@ -659,6 +849,23 @@ body {
     width: min(100%, 23rem);
     aspect-ratio: 1 / 0.78;
     margin-left: 0;
+  }
+
+  .attack-demo {
+    padding: 0.85rem;
+  }
+
+  .attack-demo-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .attack-code {
+    min-height: 16rem;
+    font-size: 0.68rem;
+  }
+
+  .attack-code code {
+    min-width: 29rem;
   }
 }
 

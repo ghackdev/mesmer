@@ -21,6 +21,24 @@ type ProjectedNode = GlobeNode & {
   scale: number;
 };
 
+type VulnerableTrace = {
+  id: string;
+  points: GlobeNode[];
+};
+
+type TraceLabel = {
+  node: ProjectedNode;
+  alpha: number;
+};
+
+const TRACE_CYCLE_FRAMES = 132;
+const TRACE_SPAWN_FRAMES = 12;
+const TRACE_TRAVERSE_FRAMES = 72;
+const TRACE_HOLD_FRAMES = 18;
+const TRACE_FADE_FRAMES = TRACE_CYCLE_FRAMES - TRACE_SPAWN_FRAMES - TRACE_TRAVERSE_FRAMES - TRACE_HOLD_FRAMES;
+
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
 const safeNodes: GlobeNode[] = Array.from({ length: 74 }, (_, index) => {
   const offset = 2 / 74;
   const y = index * offset - 1 + offset / 2;
@@ -29,9 +47,12 @@ const safeNodes: GlobeNode[] = Array.from({ length: 74 }, (_, index) => {
   const label =
     {
       5: 'refusal',
+      13: 'boundary held',
       16: 'clarify',
       28: 'policy',
+      37: 'ask permission',
       43: 'safe answer',
+      52: 'sanitize',
       57: 'redirect',
       68: 'benign',
     }[index] ?? undefined;
@@ -47,10 +68,7 @@ const safeNodes: GlobeNode[] = Array.from({ length: 74 }, (_, index) => {
   };
 });
 
-const vulnerableNodes: GlobeNode[] = Array.from({ length: 12 }, (_, index) => {
-  const t = index / 11;
-  const angle = -0.95 + t * 1.72;
-  const y = -0.42 + Math.sin(t * Math.PI) * 0.54;
+function tracePoint(angle: number, y: number, phase: number, label?: string, size = 2.45): GlobeNode {
   const radius = Math.sqrt(Math.max(0.18, 1 - y * y));
 
   return {
@@ -58,19 +76,49 @@ const vulnerableNodes: GlobeNode[] = Array.from({ length: 12 }, (_, index) => {
     y,
     z: Math.sin(angle) * radius * 0.92,
     kind: 'vulnerable',
-    size: index === 7 ? 3.2 : 2.45,
-    phase: 10 + index * 0.91,
-    label:
-      {
-        1: 'persona shift',
-        4: 'constraint gap',
-        7: 'jailbreak path',
-        10: 'leak branch',
-      }[index] ?? undefined,
+    size,
+    phase,
+    label,
   };
-});
+}
 
-const nodes = [...safeNodes, ...vulnerableNodes];
+const vulnerableTraces: VulnerableTrace[] = [
+  {
+    id: 'persona-shift',
+    points: [
+      tracePoint(-1.08, -0.36, 10, 'persona shift'),
+      tracePoint(-0.78, -0.12, 10.91),
+      tracePoint(-0.48, 0.05, 11.82, 'authority mimic'),
+      tracePoint(-0.18, 0.16, 12.73),
+      tracePoint(0.16, 0.14, 13.64, 'constraint gap'),
+      tracePoint(0.46, -0.02, 14.55),
+      tracePoint(0.74, -0.2, 15.46, 'jailbreak path', 3.15),
+    ],
+  },
+  {
+    id: 'role-confusion',
+    points: [
+      tracePoint(-0.66, 0.34, 16.2, 'role confusion'),
+      tracePoint(-0.34, 0.24, 17.01),
+      tracePoint(-0.02, 0.05, 17.82, 'policy gap'),
+      tracePoint(0.27, -0.1, 18.63),
+      tracePoint(0.57, -0.2, 19.44, 'hidden request'),
+      tracePoint(0.91, -0.34, 20.25, 'leak branch', 3.05),
+    ],
+  },
+  {
+    id: 'format-trap',
+    points: [
+      tracePoint(-0.86, -0.52, 21.3, 'format trap'),
+      tracePoint(-0.52, -0.34, 22.11),
+      tracePoint(-0.18, -0.13, 22.92, 'evaluator miss'),
+      tracePoint(0.18, 0.04, 23.73),
+      tracePoint(0.55, 0.18, 24.54, 'unsafe continuation', 3.05),
+    ],
+  },
+];
+
+const nodes = safeNodes;
 
 const safeEdges = safeNodes.flatMap((_, index) => {
   if (index % 3 !== 0) return [];
@@ -79,9 +127,6 @@ const safeEdges = safeNodes.flatMap((_, index) => {
     [index, (index + 29) % safeNodes.length],
   ] as const;
 });
-
-const vulnerableOffset = safeNodes.length;
-const vulnerableEdges = vulnerableNodes.slice(1).map((_, index) => [vulnerableOffset + index, vulnerableOffset + index + 1] as const);
 
 function projectNode(node: GlobeNode, angle: number, width: number, height: number, time: number): ProjectedNode {
   const driftX = Math.sin(time * 0.011 + node.phase) * 0.045 + Math.cos(time * 0.006 + node.phase * 0.47) * 0.018;
@@ -111,23 +156,34 @@ function projectNode(node: GlobeNode, angle: number, width: number, height: numb
   };
 }
 
-function drawNodeLabel(context: CanvasRenderingContext2D, node: ProjectedNode) {
+function drawNodeLabel(
+  context: CanvasRenderingContext2D,
+  node: ProjectedNode,
+  centerX: number,
+  centerY: number,
+  radius: number,
+  alphaMultiplier = 1,
+) {
   if (!node.label || node.depth < -0.38) return;
 
   const isVulnerable = node.kind === 'vulnerable';
+  if (!isVulnerable && node.depth < -0.05) return;
+
   const canvas = context.canvas;
   const rect = canvas.getBoundingClientRect();
   const width = rect.width;
-  if (width < 520 && !isVulnerable) return;
 
-  const alpha = Math.min(0.92, Math.max(0.42, (node.depth + 1.15) / 2));
+  const frontAlpha = Math.min(0.92, Math.max(0.42, (node.depth + 1.15) / 2));
+  const alpha = (isVulnerable ? frontAlpha : Math.min(0.34, Math.max(0.12, frontAlpha * 0.36))) * alphaMultiplier;
+  if (alpha < 0.04) return;
+
   const label = node.label;
   context.save();
   context.font = `${width < 520 ? 9 : 10}px "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace`;
   const textWidth = context.measureText(label).width;
   const preferredX = node.sx + (isVulnerable ? 12 : 10);
-  const x = Math.min(Math.max(preferredX, 8), width - textWidth - 8);
-  const y = node.sy - 7;
+  const x = clamp(preferredX, centerX - radius + 8, centerX + radius - textWidth - 8);
+  const y = clamp(node.sy - 7, centerY - radius + 12, centerY + radius - 8);
   context.shadowColor = isVulnerable ? `rgba(214, 64, 72, ${alpha * 0.5})` : `rgba(6, 115, 107, ${alpha * 0.42})`;
   context.shadowBlur = 8;
   context.fillStyle = isVulnerable ? `rgba(141, 31, 38, ${alpha})` : `rgba(6, 115, 107, ${alpha})`;
@@ -135,7 +191,87 @@ function drawNodeLabel(context: CanvasRenderingContext2D, node: ProjectedNode) {
   context.restore();
 }
 
-function drawGlobe(canvas: HTMLCanvasElement, angle: number, time: number) {
+function getTraceProgress(frame: number, edgeCount: number, reducedMotion: boolean) {
+  if (reducedMotion) {
+    return { alpha: 0.48, segmentPosition: edgeCount };
+  }
+
+  const cycleFrame = frame % TRACE_CYCLE_FRAMES;
+  if (cycleFrame < TRACE_SPAWN_FRAMES) {
+    return { alpha: 0.86 * (cycleFrame / TRACE_SPAWN_FRAMES), segmentPosition: 0 };
+  }
+
+  if (cycleFrame < TRACE_SPAWN_FRAMES + TRACE_TRAVERSE_FRAMES) {
+    const progress = (cycleFrame - TRACE_SPAWN_FRAMES) / TRACE_TRAVERSE_FRAMES;
+    return { alpha: 0.86, segmentPosition: progress * edgeCount };
+  }
+
+  if (cycleFrame < TRACE_SPAWN_FRAMES + TRACE_TRAVERSE_FRAMES + TRACE_HOLD_FRAMES) {
+    return { alpha: 0.78, segmentPosition: edgeCount };
+  }
+
+  const fadeFrame = cycleFrame - TRACE_SPAWN_FRAMES - TRACE_TRAVERSE_FRAMES - TRACE_HOLD_FRAMES;
+  return { alpha: 0.78 * (1 - fadeFrame / TRACE_FADE_FRAMES), segmentPosition: edgeCount };
+}
+
+function drawActiveTrace(context: CanvasRenderingContext2D, projectedTrace: ProjectedNode[], frame: number, reducedMotion: boolean): TraceLabel[] {
+  const edgeCount = projectedTrace.length - 1;
+  const { alpha, segmentPosition } = getTraceProgress(frame, edgeCount, reducedMotion);
+  const labels: TraceLabel[] = [];
+
+  if (alpha <= 0) return labels;
+
+  context.save();
+  context.shadowColor = `rgba(214, 64, 72, ${alpha * 0.5})`;
+  context.shadowBlur = 9;
+
+  for (let edgeIndex = 0; edgeIndex < edgeCount; edgeIndex += 1) {
+    const edgeVisibility = clamp(segmentPosition - edgeIndex, 0, 1);
+    if (edgeVisibility <= 0) continue;
+
+    const a = projectedTrace[edgeIndex];
+    const b = projectedTrace[edgeIndex + 1];
+    const depthAlpha = Math.max(0.22, Math.min(0.86, (a.depth + b.depth + 2.4) / 4.8));
+    const endX = a.sx + (b.sx - a.sx) * edgeVisibility;
+    const endY = a.sy + (b.sy - a.sy) * edgeVisibility;
+
+    context.strokeStyle = `rgba(214, 64, 72, ${alpha * edgeVisibility * depthAlpha})`;
+    context.lineWidth = 1.7 + edgeVisibility * 0.4;
+    context.beginPath();
+    context.moveTo(a.sx, a.sy);
+    context.lineTo(endX, endY);
+    context.stroke();
+  }
+
+  for (let index = 0; index < projectedTrace.length; index += 1) {
+    const node = projectedTrace[index];
+    const pointVisibility = index === 0 ? 1 : clamp(segmentPosition - index + 1, 0, 1);
+    const front = (node.depth + 1) / 2;
+    const pointAlpha = alpha * pointVisibility * (0.5 + front * 0.42);
+    if (pointAlpha <= 0.04) continue;
+
+    const size = node.size * node.scale * 2.25;
+    context.fillStyle = `rgba(214, 64, 72, ${pointAlpha})`;
+    context.beginPath();
+    context.arc(node.sx, node.sy, size, 0, Math.PI * 2);
+    context.fill();
+
+    context.strokeStyle = `rgba(214, 64, 72, ${Math.min(0.72, pointAlpha)})`;
+    context.lineWidth = 1.1;
+    context.beginPath();
+    context.arc(node.sx, node.sy, size + 4.2, 0, Math.PI * 2);
+    context.stroke();
+
+    if (node.label) {
+      labels.push({ node, alpha: pointAlpha });
+    }
+  }
+
+  context.restore();
+  return labels;
+}
+
+function drawGlobe(canvas: HTMLCanvasElement, angle: number, time: number, activeTrace: VulnerableTrace, reducedMotion: boolean) {
   const context = canvas.getContext('2d');
   if (!context) return;
 
@@ -145,6 +281,7 @@ function drawGlobe(canvas: HTMLCanvasElement, angle: number, time: number) {
   const height = rect.height;
   context.setTransform(ratio, 0, 0, ratio, 0, 0);
   const projected = nodes.map((node) => projectNode(node, angle, width, height, time));
+  const projectedTrace = activeTrace.points.map((node) => projectNode(node, angle, width, height, time));
   const centerX = width / 2;
   const centerY = height / 2;
   const radius = Math.min(width, height) * 0.39;
@@ -173,40 +310,29 @@ function drawGlobe(canvas: HTMLCanvasElement, angle: number, time: number) {
     context.stroke();
   }
 
-  for (const [start, end] of vulnerableEdges) {
-    const a = projected[start];
-    const b = projected[end];
-    const alpha = Math.max(0.28, Math.min(0.72, (a.depth + b.depth + 2.4) / 4.8));
-    context.strokeStyle = `rgba(214, 64, 72, ${alpha})`;
-    context.lineWidth = 1.8;
-    context.beginPath();
-    context.moveTo(a.sx, a.sy);
-    context.lineTo(b.sx, b.sy);
-    context.stroke();
-  }
-
   for (const node of [...projected].sort((a, b) => a.depth - b.depth)) {
     const front = (node.depth + 1) / 2;
-    const alpha = node.kind === 'safe' ? 0.26 + front * 0.52 : 0.5 + front * 0.42;
-    const color = node.kind === 'safe' ? '6, 115, 107' : '214, 64, 72';
-    const size = node.size * node.scale * (node.kind === 'safe' ? 1.9 : 2.25);
+    const alpha = 0.26 + front * 0.52;
+    const size = node.size * node.scale * 1.9;
 
-    context.fillStyle = `rgba(${color}, ${alpha})`;
+    context.fillStyle = `rgba(6, 115, 107, ${alpha})`;
     context.beginPath();
     context.arc(node.sx, node.sy, size, 0, Math.PI * 2);
     context.fill();
-
-    if (node.kind === 'vulnerable') {
-      context.strokeStyle = `rgba(${color}, ${Math.min(0.72, alpha)})`;
-      context.lineWidth = 1.1;
-      context.beginPath();
-      context.arc(node.sx, node.sy, size + 4.2, 0, Math.PI * 2);
-      context.stroke();
-    }
   }
 
-  for (const node of projected) {
-    drawNodeLabel(context, node);
+  const traceLabels = drawActiveTrace(context, projectedTrace, time, reducedMotion);
+  const safeLabelCandidates = projected
+    .filter((node) => node.label && node.depth >= -0.05)
+    .sort((a, b) => b.depth - a.depth);
+  const safeLabels = width < 520 ? safeLabelCandidates.slice(0, 2) : safeLabelCandidates;
+
+  for (const node of safeLabels) {
+    drawNodeLabel(context, node, centerX, centerY, radius);
+  }
+
+  for (const { node, alpha } of traceLabels) {
+    drawNodeLabel(context, node, centerX, centerY, radius, alpha);
   }
 
   context.restore();
@@ -223,18 +349,33 @@ export function EmbeddingGlobe() {
     let frame = 0;
     let animationFrame = 0;
     let reducedMotion = mediaQuery.matches;
+    let traceIndex = Math.floor(Math.random() * vulnerableTraces.length);
+    let traceCycle = -1;
+
+    const getActiveTrace = () => {
+      if (reducedMotion) return vulnerableTraces[0];
+
+      const nextCycle = Math.floor(frame / TRACE_CYCLE_FRAMES);
+      if (nextCycle !== traceCycle) {
+        traceCycle = nextCycle;
+        const nextIndex = Math.floor(Math.random() * vulnerableTraces.length);
+        traceIndex = nextIndex === traceIndex ? (nextIndex + 1) % vulnerableTraces.length : nextIndex;
+      }
+
+      return vulnerableTraces[traceIndex];
+    };
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
       const scale = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.max(1, Math.floor(rect.width * scale));
       canvas.height = Math.max(1, Math.floor(rect.height * scale));
-      drawGlobe(canvas, reducedMotion ? 0.72 : frame * 0.006, frame);
+      drawGlobe(canvas, reducedMotion ? 0.72 : frame * 0.006, frame, getActiveTrace(), reducedMotion);
     };
 
     const render = () => {
       frame += 1;
-      drawGlobe(canvas, frame * 0.006, frame);
+      drawGlobe(canvas, frame * 0.006, frame, getActiveTrace(), reducedMotion);
       animationFrame = window.requestAnimationFrame(render);
     };
 
@@ -242,7 +383,7 @@ export function EmbeddingGlobe() {
       reducedMotion = event.matches;
       window.cancelAnimationFrame(animationFrame);
       if (reducedMotion) {
-        drawGlobe(canvas, 0.72, 0);
+        drawGlobe(canvas, 0.72, 0, getActiveTrace(), true);
       } else {
         animationFrame = window.requestAnimationFrame(render);
       }
