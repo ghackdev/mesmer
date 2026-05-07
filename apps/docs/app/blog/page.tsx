@@ -29,7 +29,7 @@ export default async function BlogIndex(props: PageProps<'/blog'>) {
       <div className="mx-auto max-w-5xl">
         <nav className="mb-12 flex flex-wrap items-center justify-between gap-4" aria-label="Blog navigation">
           <Link href="/" className="inline-flex items-center gap-3 text-console-foreground hover:text-console-accent">
-            <Image src="/mesmer-logo-transparent.png" width={44} height={44} alt={appName} className="h-11 w-11 object-contain" priority />
+            <Image src="/mesmer-logo-transparent.png" width={44} height={44} alt="" className="h-11 w-11 object-contain" priority />
             <span className="font-mono text-xs uppercase tracking-[0.24em]">Mesmer</span>
           </Link>
           <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-console-muted">

@@ -1,234 +1,137 @@
-import {
-  ArrowRight,
-  BookOpen,
-  Braces,
-  FileJson2,
-  Gauge,
-  GitBranch,
-  GitFork,
-  LockKeyhole,
-  Radar,
-  Rss,
-  ShieldCheck,
-} from 'lucide-react';
+import { ArrowRight, BookOpen, Box, FileJson2, GitFork, Radar, Route, Rss, Scale, ShieldCheck, Target } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { appName, appTagline, gitConfig } from '@/lib/shared';
 import { createMetadata } from '@/lib/seo/metadata';
+import { EmbeddingGlobe } from './embedding-globe';
 
 export const metadata = createMetadata({
   path: '/',
 });
 
-const capabilities = [
+const workflow = [
   {
-    icon: GitBranch,
-    title: 'Attacks as programs',
-    text: 'Compose ordered runtime trees from initialization, generation, constraints, selection, targeting, evaluation, feedback, stopping, transforms, and replay.',
+    icon: Target,
+    label: 'Objective',
+    text: 'State the behavior you are authorized to test.',
+  },
+  {
+    icon: Route,
+    label: 'Program',
+    text: 'Encode the technique as an ordered runtime tree.',
   },
   {
     icon: Radar,
-    title: 'Real target boundaries',
-    text: 'Exercise LiteLLM models, HTTP JSON, SSE, WebSocket, or Python callables without hiding target interaction behind a one-off script.',
+    label: 'Target',
+    text: 'Query real model, HTTP, SSE, WebSocket, or callable boundaries.',
+  },
+  {
+    icon: Scale,
+    label: 'Judge',
+    text: 'Record whether the target crossed the intended boundary.',
   },
   {
     icon: FileJson2,
-    title: 'Replayable evidence',
-    text: 'Capture state transitions, compact JSONL traces, token usage, target replay messages, search traces, and reproducible success artifacts.',
+    label: 'Replay',
+    text: 'Keep target-visible messages and compact evidence.',
   },
-  {
-    icon: Gauge,
-    title: 'Benchmark pressure',
-    text: 'Compare single-turn, tree-search, autonomous-agent, and paper-style loops across objectives, targets, budgets, success rates, turns, queries, and cost.',
-  },
-];
-
-const trace = [
-  ['seed', 'objective source loaded: release-readiness canary'],
-  ['propose', 'generation.Template produced 1 candidate'],
-  ['target', 'targeting.Query wrote replay messages'],
-  ['assess', 'evaluation.Contains score=1.0'],
-  ['artifact', 'reproduction payload emitted'],
-];
-
-const flowNodes = [
-  { label: 'Objective', value: 'release token', className: 'left-[7%] top-[16%]' },
-  { label: 'Proposer', value: '1 candidate', className: 'left-[36%] top-[7%]' },
-  { label: 'Target', value: 'LiteLLM', className: 'right-[8%] top-[36%]' },
-  { label: 'Evaluator', value: 'score 1.0', className: 'left-[24%] bottom-[18%]' },
-  { label: 'Replay', value: 'artifact', className: 'right-[23%] bottom-[20%]' },
 ];
 
 export default function HomePage() {
   return (
     <div id="mesmer-home" className="bg-console-background text-console-foreground">
-      <section className="relative isolate min-h-[calc(100vh-4rem)] overflow-hidden px-4 py-16 sm:px-6 lg:px-8">
-        <div className="console-grid absolute inset-0 -z-10 opacity-70" aria-hidden="true" />
-        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <div className="max-w-3xl">
-            <div className="mb-8 flex items-center gap-4">
-              <div className="mesmer-sigil" aria-hidden="true">
-                <div className="relative z-10 grid h-16 w-16 place-items-center rounded-md border border-console-border bg-console-panel p-1.5">
-                  <Image
-                    src="/mesmer-logo-transparent.png"
-                    width={88}
-                    height={88}
-                    alt=""
-                    priority
-                    className="h-full w-full object-contain"
-                  />
-                </div>
-              </div>
-              <div>
-                <p className="font-mono text-xs uppercase tracking-[0.24em] text-console-muted">
-                  authorized safety research harness
-                </p>
-                <p className="mt-1 text-sm text-console-muted">Python-first · reproducible · composable</p>
-              </div>
+      <section className="mesmer-hero relative isolate overflow-hidden px-4 sm:px-6 lg:h-[calc(100svh-4rem)] lg:min-h-[620px] lg:px-8">
+        <div className="mesmer-hero-grid absolute inset-0 -z-20" aria-hidden="true" />
+        <div className="mesmer-hero-light absolute inset-0 -z-10" aria-hidden="true" />
+
+        <div className="mx-auto grid h-full max-w-7xl gap-6 py-9 sm:py-11 lg:grid-cols-[0.78fr_1.22fr] lg:items-center lg:py-0">
+          <div className="hero-copy max-w-2xl">
+            <div className="hero-kicker mb-6">
+              <span>authorized jailbreak research lab</span>
             </div>
 
-            <h1 className="max-w-4xl text-5xl font-semibold leading-tight text-console-foreground sm:text-6xl lg:text-7xl">
+            <h1 className="text-6xl font-semibold leading-none tracking-normal text-console-foreground sm:text-7xl lg:text-8xl">
               {appName}
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-console-muted sm:text-xl">{appTagline}</p>
+            <p className="mt-5 max-w-xl text-2xl leading-tight text-console-foreground sm:text-3xl">{appTagline}</p>
+            <p className="mt-4 max-w-xl text-base leading-7 text-console-muted">
+              Compose attack programs, run them against authorized targets, and keep replayable evidence of what happened.
+            </p>
 
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Badge>runtime.Program</Badge>
-              <Badge>targeting.Query</Badge>
-              <Badge>evaluation.Assess</Badge>
-              <Badge>replay artifacts</Badge>
-            </div>
-
-            <div className="mt-10 flex flex-col gap-3 sm:flex-row">
-              <Button href="/docs">
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <Button href="/docs" className="min-h-11 px-5">
                 Read the docs <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </Button>
-              <Button href="/blog" variant="secondary">
+              <Button href="/blog" variant="secondary" className="min-h-11 px-5">
                 Engineering notes
               </Button>
             </div>
           </div>
 
-          <div className="scanline rounded-md border border-console-border bg-console-panel/90 shadow-2xl shadow-black/10">
-            <div className="flex items-center justify-between border-b border-console-border px-4 py-3 font-mono text-xs text-console-muted">
-              <span>mesmer run --log-format compact</span>
-              <span className="live-dot text-console-accent">LIVE</span>
-            </div>
-            <div className="space-y-4 p-5 font-mono text-sm">
-              <div
-                className="attack-map relative h-[18rem] overflow-hidden rounded border border-console-border bg-console-background"
-                aria-label="Animated Mesmer attack flow visualization"
-                role="img"
-              >
-                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 560 320" aria-hidden="true">
-                  <defs>
-                    <linearGradient id="attackLine" x1="0" x2="1" y1="0" y2="1">
-                      <stop offset="0%" stopColor="var(--console-accent)" />
-                      <stop offset="52%" stopColor="var(--console-cyan)" />
-                      <stop offset="100%" stopColor="var(--console-amber)" />
-                    </linearGradient>
-                  </defs>
-                  <path className="attack-line delay-0" d="M92 80 C190 32 240 52 284 76" />
-                  <path className="attack-line delay-1" d="M284 76 C398 96 462 126 488 160" />
-                  <path className="attack-line delay-2" d="M488 160 C400 232 330 250 268 256" />
-                  <path className="attack-line delay-3" d="M268 256 C194 224 126 164 92 80" />
-                  <path className="attack-line delay-4" d="M284 76 C250 140 246 198 268 256" />
-                </svg>
-                <div className="absolute left-1/2 top-1/2 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-md border border-console-accent/55 bg-console-panel/95 shadow-[0_0_36px_rgba(45,213,195,0.22)]">
-                  <Image
-                    src="/mesmer-logo-transparent.png"
-                    width={92}
-                    height={92}
-                    alt=""
-                    className="h-20 w-20 object-contain"
-                  />
-                </div>
-                {flowNodes.map((node, index) => (
-                  <div
-                    key={node.label}
-                    className={`attack-node absolute ${node.className}`}
-                    style={{ animationDelay: `${index * 260}ms` }}
-                  >
-                    <span className="block text-[0.65rem] uppercase text-console-accent">{node.label}</span>
-                    <span className="mt-1 block text-xs text-console-muted">{node.value}</span>
-                  </div>
-                ))}
-                <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded border border-console-border bg-console-panel/85 px-3 py-2 text-[0.68rem] text-console-muted">
-                  <span>frontier width: 1</span>
-                  <span className="text-console-accent">artifact locked</span>
-                </div>
-              </div>
-              <pre
-                aria-label="Minimal Mesmer program example"
-                tabIndex={0}
-                className="overflow-x-auto rounded border border-console-border bg-console-background p-4 text-console-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-accent"
-              >
-                <code>{`from mesmer import runtime, topology, targeting, evaluation
-
-program = runtime.Program(
-    topology.Iterate(
-        children=[
-            targeting.Query(),
-            evaluation.Assess(...),
-        ],
-    ),
-)`}</code>
-              </pre>
-              <ol className="space-y-3" aria-label="Example Mesmer execution trace">
-                {trace.map(([event, message], index) => (
-                  <li
-                    key={event}
-                    className="trace-row grid grid-cols-[5.5rem_1fr] gap-3 text-console-muted"
-                    style={{ animationDelay: `${index * 180}ms` }}
-                  >
-                    <span className="text-console-accent">[{event}]</span>
-                    <span>{message}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
+          <div className="hero-globe-wrap">
+            <EmbeddingGlobe />
           </div>
         </div>
       </section>
 
-      <section className="border-y border-console-border bg-console-panel/55 px-4 py-14 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-4">
-          {capabilities.map((item) => (
-            <article key={item.title} className="rounded-md border border-console-border bg-console-background p-5">
-              <item.icon aria-hidden="true" className="mb-5 h-5 w-5 text-console-accent" />
-              <h2 className="text-base font-semibold text-console-foreground">{item.title}</h2>
-              <p className="mt-3 text-sm leading-6 text-console-muted">{item.text}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.85fr_1.15fr]">
+      <section className="workflow-section border-y border-console-border bg-console-panel/45 px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.56fr_0.44fr] lg:items-center">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[0.24em] text-console-amber">safety scope</p>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Built for authorized red-team experiments, not throwaway prompt collections.
+            <p className="font-mono text-xs uppercase text-console-accent">how mesmer thinks</p>
+            <h2 className="mt-3 max-w-3xl text-3xl font-semibold leading-tight text-console-foreground sm:text-4xl">
+              From a jailbreak idea to evidence you can inspect.
             </h2>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-md border border-console-border bg-console-panel p-5">
-              <LockKeyhole aria-hidden="true" className="mb-4 h-5 w-5 text-console-cyan" />
-              <h3 className="font-semibold">Permission-first workflows</h3>
-              <p className="mt-2 text-sm leading-6 text-console-muted">
-                Public examples use benign canary objectives by default, while paper examples keep reproducibility clear and explicit.
-              </p>
-            </div>
-            <div className="rounded-md border border-console-border bg-console-panel p-5">
-              <Braces aria-hidden="true" className="mb-4 h-5 w-5 text-console-cyan" />
-              <h3 className="font-semibold">Composable primitives</h3>
-              <p className="mt-2 text-sm leading-6 text-console-muted">
-                The framework favors typed components and services over hidden orchestration, so experiments stay inspectable.
-              </p>
+            <div className="workflow-rail mt-8">
+              {workflow.map((item) => (
+                <article key={item.label} className="workflow-step">
+                  <div className="workflow-step-icon">
+                    <item.icon aria-hidden="true" className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3>{item.label}</h3>
+                    <p>{item.text}</p>
+                  </div>
+                </article>
+              ))}
             </div>
           </div>
+
+          <div className="artifact-panel">
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <span className="font-mono text-xs uppercase text-console-muted">output artifact</span>
+              <Box aria-hidden="true" className="h-5 w-5 text-console-accent" />
+            </div>
+            <dl>
+              <div>
+                <dt>target replay</dt>
+                <dd>messages preserved</dd>
+              </div>
+              <div>
+                <dt>judgement</dt>
+                <dd>score + reason</dd>
+              </div>
+              <div>
+                <dt>search trace</dt>
+                <dd>path to reproduction</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 rounded-md border border-console-border bg-console-panel/65 p-6 sm:p-7 md:flex-row md:items-center md:justify-between">
+          <div className="max-w-3xl">
+            <p className="font-mono text-xs uppercase text-console-amber">safety scope</p>
+            <h2 className="mt-3 text-2xl font-semibold text-console-foreground">Designed for authorized evaluation.</h2>
+            <p className="mt-2 text-sm leading-6 text-console-muted">
+              Mesmer is for defensive testing, benchmark reproduction, and research on systems you own or have permission to test.
+            </p>
+          </div>
+          <Button href="/docs/safety-scope" variant="secondary" className="shrink-0">
+            Safety scope
+          </Button>
         </div>
       </section>
 
@@ -239,12 +142,9 @@ program = runtime.Program(
               <Image src="/mesmer-logo-transparent.png" width={40} height={40} alt="" className="h-9 w-9 object-contain" />
               <div>
                 <p className="font-semibold">{appName}</p>
-                <p className="text-sm text-console-muted">Composable safety experiments with replayable evidence.</p>
+                <p className="text-sm text-console-muted">Reproducible LLM safety experiments with replayable evidence.</p>
               </div>
             </div>
-            <p className="mt-5 max-w-2xl text-sm leading-6 text-console-muted">
-              Built for authorized red-team work, defensive evaluation, benchmark reproduction, and research on systems you own or have permission to test.
-            </p>
           </div>
           <nav aria-label="Footer" className="flex flex-wrap gap-3 md:justify-end">
             <Link className="footer-link" href="/docs">

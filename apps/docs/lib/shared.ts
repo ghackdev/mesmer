@@ -1,6 +1,5 @@
 export const appName = 'Mesmer';
-export const appTagline =
-  'Composable LLM red-team, jailbreak research, and safety benchmarking for Python.';
+export const appTagline = 'Turn jailbreak ideas into reproducible safety experiments.';
 export const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mesmer.dev';
 export const docsRoute = '/docs';
 export const blogRoute = '/blog';
