@@ -3,6 +3,7 @@ import { defineI18nUI } from 'fumadocs-ui/i18n';
 import Image from 'next/image';
 import { appName, blogRoute, docsRoute, gitConfig } from './shared';
 import { i18n } from './i18n';
+import { getSiteCopy } from './copy/site';
 
 export const i18nUI = defineI18nUI(i18n, {
   en: {
@@ -11,6 +12,8 @@ export const i18nUI = defineI18nUI(i18n, {
 });
 
 export function baseOptions(locale = 'en'): BaseLayoutProps {
+  const copy = getSiteCopy();
+
   return {
     nav: {
       title: (
@@ -21,12 +24,12 @@ export function baseOptions(locale = 'en'): BaseLayoutProps {
     },
     links: [
       {
-        text: 'Docs',
+        text: copy.nav.docs,
         url: docsRoute,
         active: 'nested-url',
       },
       {
-        text: 'Blog',
+        text: copy.nav.blog,
         url: blogRoute,
         active: 'nested-url',
       },

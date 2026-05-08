@@ -9,11 +9,13 @@ Mesmer keeps prompt tactics and mechanical rewrites separate.
 
 Prompt patterns live under `prompts`. They are reusable tactics, templates, proposer hints, and transform suggestions. They are not executable transforms by themselves.
 
-The built-in prompt library includes source-tagged patterns from `paper:2307.02483v1` for "Jailbroken: How Does LLM Safety Training Fail?".
+The built-in prompt library includes source-tagged patterns from `paper:2307.02483v1` for "Jailbroken: How Does LLM Safety Training Fail?" and `paper:2307.15043v2` for "Universal and Transferable Adversarial Attacks on Aligned Language Models".
 
 ## Transforms
 
-Deterministic candidate and message rewrite strategies live under `transforms`. Examples include Base64, ROT13, template wrappers, and payload splitting. They are executed by operators or technique-specific state transitions.
+Deterministic candidate and message rewrite strategies live under `transforms`. Examples include Base64, ROT13, template wrappers, payload splitting, and `transforms.AppendSuffix` for appending known suffix candidates while preserving the original user request. They execute through `ops.ApplyTransforms`.
+
+For GCG-inspired black-box experiments, keep the responsibilities separate: use prompt patterns as paper guidance, use a proposer such as `proposers.SuffixOnlyLLMProposer` to generate suffix text, then use `ops.ApplyTransforms(transforms.AppendSuffix(...))` when applying known suffixes mechanically. Full GCG token-gradient optimization is a white-box capability and is not part of the current black-box runtime.
 
 ## Mutators
 

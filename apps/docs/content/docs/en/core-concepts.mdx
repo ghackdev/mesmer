@@ -15,15 +15,15 @@ A `Run` combines objectives, an attack technique, and a target. It is the smalle
 
 ## Techniques
 
-A `Technique` is the user-facing attack recipe: frontier search, single-turn probing, population fuzzing, or a custom algorithm. Built-in techniques infer their state schema from the operators they compose.
+A `Technique` is the user-facing attack recipe: `Probe`, `BestOfNProbe`, `FrontierSearch`, `ConversationAgentProbe`, `PopulationFuzzing`, or a custom algorithm. Built-in techniques infer their state schema from the operators they compose.
 
 ## State
 
-`State` is typed runtime memory. It is composed from slices such as objective, frontier, attempts, target responses, evaluations, population pool, rewards, feedback, stop signal, and metadata.
+`State` is typed runtime memory. It is composed from slices such as objective, frontier, attempts, target responses, evaluations, constraints, population pool, rewards, feedback, stop signal, and metadata.
 
 ## Operators
 
-An `Operator` is one executable state transition. It declares which state slices it reads and writes, receives runtime state, and returns a patch.
+An `Operator` is one executable state transition. It declares which state slices it reads and writes, receives runtime state, and returns a patch. Common operators include proposal, transform application, constraint checking, filtering, target query, evaluation, feedback, stopping, and population generation.
 
 ## Workflows
 
@@ -35,8 +35,8 @@ Every operator execution records a `Transition`: before snapshot, patch summary,
 
 ## Strategies And Services
 
-Strategies such as proposers, selectors, evaluators, mutators, conditions, and sources configure operators. They do not execute alone.
+Strategies such as proposers, transforms, selectors, evaluators, mutators, conditions, constraints, and sources configure operators. They do not execute alone.
 
 ## Benchmarks
 
-Benchmarks run many experiments with shared metrics such as success rate, turns, queries, and cost.
+Benchmarks run many experiments with shared metrics such as success rate, turns, queries, and cost. Reports can also preserve an `EvidenceMatrix` for row-level attempt evidence and a `BudgetCurve` for success as target-call budget increases.

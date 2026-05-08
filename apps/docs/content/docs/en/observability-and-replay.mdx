@@ -9,6 +9,7 @@ Successful runs should emit a reproduction artifact with:
 
 - Exact target replay `messages`.
 - Target metadata.
+- Target capabilities and target-call count.
 - Judgement details.
 - Operator transition trace.
 - Replay-critical candidate provenance.
@@ -20,3 +21,7 @@ export MESMER_LOG_FORMAT=compact
 ```
 
 The runtime also preserves compact transition history for every operator. Logs alone are not enough for reproducible experiments.
+
+`ops.QueryTarget` snapshots the candidate when the target is called. That matters in iterative techniques, because later operators may mutate the frontier while the replay artifact still needs the exact messages that produced a response.
+
+For benchmark-level inspection, `EvidenceMatrix` keeps row-level attempt and evaluator data, while `BudgetCurve` makes query-budget tradeoffs visible.

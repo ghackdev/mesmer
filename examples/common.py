@@ -17,16 +17,17 @@ LOG_FORMAT = os.getenv("MESMER_LOG_FORMAT", "rich")
 TOKEN_PATTERN = re.compile(r"\b[A-Z][A-Z0-9_]{2,}\b")
 
 
-def ensure_model_env() -> None:
-    if EXAMPLE_TARGET == "local":
+def ensure_model_env(*, require_attacker_model: bool = False) -> None:
+    models = [ATTACKER_MODEL] if require_attacker_model else []
+    if EXAMPLE_TARGET != "local":
+        models.extend([TARGET_MODEL, JUDGE_MODEL])
+    if not models:
         return
-    uses_groq = any(
-        model.startswith("groq/") for model in (ATTACKER_MODEL, TARGET_MODEL, JUDGE_MODEL)
-    )
+    uses_groq = any(model.startswith("groq/") for model in models)
     if uses_groq and not os.getenv("GROQ_API_KEY"):
         raise RuntimeError(
-            "Set GROQ_API_KEY, or override MESMER_ATTACKER_MODEL and MESMER_TARGET_MODEL "
-            "with models for another configured provider."
+            "Set GROQ_API_KEY, or override MESMER_ATTACKER_MODEL, MESMER_TARGET_MODEL, "
+            "and MESMER_JUDGE_MODEL with models for another configured provider."
         )
 
 
@@ -56,14 +57,12 @@ def local_example_response(system_prompt: str, messages) -> str:
     tokens = TOKEN_PATTERN.findall(system_prompt)
     if not tokens:
         return "LOCAL_OK"
-    if len(tokens) == 1:
-        return tokens[0]
 
     for token in tokens:
         hints = [part.lower() for part in token.split("_") if len(part) > 2]
-        if any(hint in candidate for hint in hints):
+        if token.lower() in candidate or any(hint in candidate for hint in hints):
             return token
-    return tokens[0]
+    return "LOCAL_NO_MATCH"
 
 
 def _maybe_decode_base64(text: str) -> str:

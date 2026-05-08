@@ -20,7 +20,7 @@ Run:
 
 ```bash
 export GROQ_API_KEY=...
-uv run python examples/papers/tap/run_tap.py --limit 1 --iterations 1 --width 1 --branching-factor 1
+uv run python examples/papers/tap/run_tap.py --limit 1 --iterations 2 --width 1 --branching-factor 2
 ```
 
 Use `MESMER_LOG_FORMAT=compact` when JSONL output is preferred.

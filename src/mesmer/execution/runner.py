@@ -80,6 +80,23 @@ class Runner(MesmerModel):
                             logger=logger,
                         )
                         state = await run.attack.execute(objective, context)
+                        state.metadata.update(
+                            {
+                                "attack_name": run.attack.name,
+                                "technique": run.attack.__class__.__name__,
+                                "target_name": run.target.name,
+                                "target_model": getattr(run.target, "model", None),
+                                "target_capabilities": sorted(
+                                    capability.value
+                                    for capability in getattr(
+                                        run.target,
+                                        "capabilities",
+                                        set(),
+                                    )
+                                ),
+                                "run_metadata": dict(run.metadata),
+                            }
+                        )
                         self._store_objective_success(
                             state,
                             attack_name=run.attack.name,

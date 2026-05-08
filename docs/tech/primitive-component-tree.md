@@ -1,8 +1,16 @@
 # Primitive Component Tree
 
-This document explains the current Mesmer primitive system from the center
-outward. It is descriptive, not a redesign proposal. The point is to make the
-framework's pattern visible enough that we can question it clearly.
+> Historical note: this document records the old component-tree implementation
+> and vocabulary. The current architecture is documented in
+> `primitive-architecture.md`, and the current taxonomy is summarized in
+> `primitive-taxonomy-audit.md`. Names such as `runtime.Program`,
+> `topology.Search`, and component families below are retained here only as
+> context for why the project moved to `State + Operator + Transition +
+> Workflow`.
+
+This document explains the old Mesmer primitive system from the center outward.
+It is descriptive, not a redesign proposal. The point is to make the historical
+pattern visible enough that we can question it clearly.
 
 React is easier to learn because it has a strong center: everything starts from
 components, components receive props, components may have state, and context
@@ -84,7 +92,7 @@ flowchart TD
 program = runtime.Program(
     initialization.Seed(),
     topology.Iterate(
-        policy=topology.Policy(iterations=3, branching=1, width=1),
+        policy=topology.Policy(iterations=3, branching=2, width=1),
         children=[
             generation.Propose(generation.Template()),
             targeting.Query(),
@@ -94,6 +102,10 @@ program = runtime.Program(
     ),
 )
 ```
+
+This historical example uses a deterministic template enumerator. It should only
+be treated as search when the policy asks for multiple candidates or iterations
+that can meaningfully change the frontier.
 
 `topology.Search` is only needed when this program must be passed to `Run` as an
 attack flow:

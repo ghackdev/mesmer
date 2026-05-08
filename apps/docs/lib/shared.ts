@@ -1,5 +1,7 @@
+import { siteCopy } from './copy/site';
+
 export const appName = 'Mesmer';
-export const appTagline = 'Turn jailbreak ideas into reproducible safety experiments.';
+export const appTagline = siteCopy.en.appTagline;
 export const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mesmer.dev';
 export const docsRoute = '/docs';
 export const blogRoute = '/blog';

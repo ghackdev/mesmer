@@ -99,3 +99,50 @@ async def test_structured_llm_default_prompt_includes_selected_pattern_guidance(
     assert "Selected prompt pattern guidance:" in user_prompt
     assert "test.competing_objectives" in user_prompt
     assert "Generate varied prefix, style, or format constraints." in user_prompt
+
+
+async def test_gcg_paper_prompt_patterns_are_source_tagged() -> None:
+    library = await prompts.BuiltinSource().load(Objective("return RELEASE_READY"), object())
+    by_id = {pattern.id: pattern for pattern in library.patterns}
+    expected_ids = {
+        "paper.gcg.affirmative_target",
+        "paper.gcg.adversarial_suffix",
+        "paper.gcg.universal_suffix_search",
+        "paper.gcg.multi_model_transfer",
+        "paper.gcg.suffix_ensemble",
+        "paper.gcg.conditioning_step",
+    }
+
+    assert expected_ids <= by_id.keys()
+    for pattern_id in expected_ids:
+        pattern = by_id[pattern_id]
+        assert pattern.source == "paper:2307.15043v2"
+        assert pattern.metadata["arxiv_id"] == "2307.15043v2"
+        assert pattern.metadata["paper"].startswith("Universal and Transferable")
+
+
+async def test_gcg_search_guidance_is_not_a_transform() -> None:
+    library = await prompts.BuiltinSource().load(Objective("return RELEASE_READY"), object())
+    gcg_patterns = [
+        pattern for pattern in library.patterns if pattern.id.startswith("paper.gcg.")
+    ]
+
+    assert gcg_patterns
+    assert all(not pattern.suggested_transforms for pattern in gcg_patterns)
+    assert not any(pattern.id == "paper.gcg.greedy_coordinate_gradient" for pattern in gcg_patterns)
+
+
+async def test_gcg_patterns_do_not_bundle_concrete_attack_suffixes() -> None:
+    library = await prompts.BuiltinSource().load(Objective("return RELEASE_READY"), object())
+    gcg_patterns = [
+        pattern for pattern in library.patterns if pattern.id.startswith("paper.gcg.")
+    ]
+
+    template_text = "\n".join(
+        template
+        for pattern in gcg_patterns
+        for template in pattern.template_texts()
+    )
+    assert "<ADV PROMPT>" not in template_text
+    assert "Sure, here" not in template_text
+    assert "optimized adversarial suffix" not in template_text.lower()

@@ -9,7 +9,7 @@ from pydantic import Field
 from mesmer.artifacts.messages import assistant_message, user_message
 from mesmer.core.constants import SUCCESS_TERMINATION_REASON
 from mesmer.core.enums import JudgementStatus, TargetBinding
-from mesmer.core.errors import EvaluatorParseError
+from mesmer.core.errors import ConfigError, EvaluatorParseError
 from mesmer.execution.context import AttackContext
 from mesmer.execution.state import Attempt, Candidate
 from mesmer.judging.base import Judgement
@@ -22,6 +22,7 @@ from mesmer.population_strategies import (
 )
 from mesmer.state import (
     Attempts,
+    Constraints,
     Evaluations,
     Feedback,
     Frontier,
@@ -35,6 +36,8 @@ from mesmer.state import (
     TargetResponses,
 )
 from mesmer.strategies import (
+    CandidateConstraint,
+    ConstraintScoreSelector,
     FeedbackBuilder,
     FrontierSelector,
     Proposer,
@@ -44,6 +47,7 @@ from mesmer.strategies import (
 )
 from mesmer.targets.base import Target, TargetContext
 from mesmer.trajectory import BranchingPolicy, CandidateTrajectory, EvaluationResult
+from mesmer.transforms import Transform
 from mesmer.workflow import Operator
 
 
@@ -55,8 +59,13 @@ class SeedFromObjective(Operator):
     async def run(self, state: State, context: AttackContext) -> Patch:
         objective = state.objective
         messages = list(objective.initial_state.messages) or [user_message(objective.goal)]
+        metadata = {
+            "seed": self.name,
+            "objective_goal": objective.goal,
+        }
         trajectory = CandidateTrajectory(
-            candidate=Candidate(messages=messages, metadata={"seed": self.name})
+            candidate=Candidate(messages=messages, metadata=metadata),
+            metadata=metadata,
         )
         return Patch.set(Frontier(items=[trajectory]))
 
@@ -94,6 +103,48 @@ class Propose(Operator):
             candidates=len(proposed),
         )
         return Patch.set(Frontier(items=proposed))
+
+
+class ApplyTransforms(Operator):
+    transforms: list[Transform] = Field(default_factory=list)
+    name: str = "apply_transforms"
+    reads: set[type] = Field(default_factory=lambda: {Objective, Frontier})
+    writes: set[type] = Field(default_factory=lambda: {Frontier})
+
+    def __init__(
+        self,
+        transform: Transform | None = None,
+        *,
+        transforms: list[Transform] | None = None,
+        **data: object,
+    ) -> None:
+        if transform is not None and "transforms" not in data:
+            data["transforms"] = [transform]
+        if transforms is not None and "transforms" not in data:
+            data["transforms"] = transforms
+        super().__init__(**data)
+        self._validate_transforms()
+
+    def _validate_transforms(self) -> None:
+        if not self.transforms:
+            raise ConfigError("ops.ApplyTransforms requires at least one transform.")
+
+    async def run(self, state: State, context: AttackContext) -> Patch:
+        self._validate_transforms()
+        transformed: list[CandidateTrajectory] = []
+        for trajectory in state.get(Frontier).items:
+            for transform in self.transforms:
+                transformed.extend(await transform.transform(state.objective, trajectory))
+        context.logger.emit(
+            "operator.transforms.apply",
+            transforms=[transform.name for transform in self.transforms],
+            candidates=len(transformed),
+        )
+        return Patch.set(
+            Frontier(items=transformed),
+            transforms=[transform.name for transform in self.transforms],
+            transformed_candidates=len(transformed),
+        )
 
 
 class QueryTarget(Operator):
@@ -134,7 +185,7 @@ class QueryTarget(Operator):
             )
             return Attempt(
                 objective=state.objective,
-                candidate=trajectory.candidate,
+                candidate=trajectory.candidate.model_copy(deep=True),
                 response=response,
                 judgements=[],
                 turn=max(1, iteration),
@@ -173,6 +224,66 @@ class ContinueConversation(Operator):
         return Patch.set(Frontier(items=state.get(Frontier).items))
 
 
+class CheckConstraints(Operator):
+    constraints: list[CandidateConstraint] = Field(default_factory=list)
+    max_parallel: int | None = Field(default=None, ge=1)
+    name: str = "check_constraints"
+    reads: set[type] = Field(default_factory=lambda: {Objective, Frontier, Constraints})
+    writes: set[type] = Field(default_factory=lambda: {Frontier, Constraints})
+
+    def __init__(
+        self,
+        constraint: CandidateConstraint | None = None,
+        *,
+        constraints: list[CandidateConstraint] | None = None,
+        **data: object,
+    ) -> None:
+        if constraint is not None and "constraints" not in data:
+            data["constraints"] = [constraint]
+        if constraints is not None and "constraints" not in data:
+            data["constraints"] = constraints
+        super().__init__(**data)
+        self._validate_constraints()
+
+    def _validate_constraints(self) -> None:
+        if not self.constraints:
+            raise ConfigError("ops.CheckConstraints requires at least one constraint.")
+
+    async def run(self, state: State, context: AttackContext) -> Patch:
+        self._validate_constraints()
+        policy = _policy(context)
+        max_parallel = self.max_parallel or policy.max_parallel
+
+        async def check_trajectory(trajectory: CandidateTrajectory):
+            results = []
+            for constraint in self.constraints:
+                result = await constraint.check(state.objective, trajectory)
+                trajectory.constraints.append(result)
+                results.append(result)
+                context.logger.emit(
+                    "operator.constraint.result",
+                    constraint=constraint.name,
+                    trajectory_id=trajectory.id,
+                    passed=result.passed,
+                    label=result.label,
+                    reason=result.reason,
+                )
+            return results
+
+        result_groups = await _gather_limited(
+            state.get(Frontier).items,
+            max_parallel,
+            check_trajectory,
+        )
+        all_results = list(state.get(Constraints).items)
+        for results in result_groups:
+            all_results.extend(results)
+        return Patch.set(
+            Frontier(items=state.get(Frontier).items),
+            Constraints(items=all_results),
+        )
+
+
 class Evaluate(Operator):
     evaluators: list[ResponseEvaluator] = Field(default_factory=list)
     max_parallel: int | None = Field(default=None, ge=1)
@@ -194,8 +305,14 @@ class Evaluate(Operator):
         if evaluators is not None and "evaluators" not in data:
             data["evaluators"] = evaluators
         super().__init__(**data)
+        self._validate_evaluators()
+
+    def _validate_evaluators(self) -> None:
+        if not self.evaluators:
+            raise ConfigError("ops.Evaluate requires at least one evaluator.")
 
     async def run(self, state: State, context: AttackContext) -> Patch:
+        self._validate_evaluators()
         policy = _policy(context)
         max_parallel = self.max_parallel or policy.max_parallel
 
@@ -300,6 +417,30 @@ class Select(Operator):
             candidates=len(selected),
         )
         return Patch.set(Frontier(items=selected))
+
+
+class Filter(Operator):
+    selector: FrontierSelector = Field(default_factory=ConstraintScoreSelector)
+    width: int | None = Field(default=None, ge=1)
+    name: str = "filter"
+    reads: set[type] = Field(default_factory=lambda: {Frontier})
+    writes: set[type] = Field(default_factory=lambda: {Frontier})
+
+    def __init__(self, selector: FrontierSelector | None = None, **data: object) -> None:
+        if selector is not None and "selector" not in data:
+            data["selector"] = selector
+        super().__init__(**data)
+
+    async def run(self, state: State, context: AttackContext) -> Patch:
+        policy = _policy(context)
+        width = self.width or policy.width
+        filtered = self.selector.select(state.get(Frontier).items, width)
+        context.logger.emit(
+            "operator.filter.finish",
+            selector=self.selector.name,
+            candidates=len(filtered),
+        )
+        return Patch.set(Frontier(items=filtered))
 
 
 class AddFeedback(Operator):

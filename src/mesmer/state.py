@@ -12,7 +12,7 @@ from mesmer.judging.base import Judgement
 from mesmer.objectives.models import Objective as ObjectiveModel
 from mesmer.population_strategies import PromptSeedPool
 from mesmer.targets.base import TargetResponse
-from mesmer.trajectory import CandidateTrajectory, EvaluationResult
+from mesmer.trajectory import CandidateTrajectory, ConstraintResult, EvaluationResult
 
 
 class StateSlice(MesmerModel):
@@ -44,6 +44,10 @@ class Evaluations(StateSlice):
 
 class Feedback(StateSlice):
     items: list[str] = Field(default_factory=list)
+
+
+class Constraints(StateSlice):
+    items: list[ConstraintResult] = Field(default_factory=list)
 
 
 class PopulationPool(StateSlice):
@@ -220,6 +224,9 @@ class State(MesmerModel):
             transition.model_dump(mode="json") for transition in self.transitions
         ]
         self.attack_state.metadata["runtime_state_type"] = "State"
+        self.attack_state.metadata["target_calls"] = self.target_calls
+        if self.best is not None:
+            self.attack_state.metadata["best_trajectory"] = _trajectory_summary(self.best)
         return self.attack_state
 
     def _mark_attempt_success(self, trajectory_id: str) -> None:

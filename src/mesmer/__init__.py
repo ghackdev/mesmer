@@ -15,6 +15,7 @@ from mesmer import (
     sources,
     state,
     techniques,
+    transforms,
     workflow,
 )
 from mesmer.artifacts.messages import (
@@ -26,10 +27,12 @@ from mesmer.artifacts.messages import (
 )
 from mesmer.benchmarking.benchmark import Benchmark
 from mesmer.benchmarking.metrics import AttackSuccessRate, MeanCost, MeanQueries, MeanTurns
+from mesmer.benchmarking.report import BudgetCurve, EvidenceMatrix
 from mesmer.benchmarking.runner import BenchmarkRunner
 from mesmer.core.enums import (
     ActorRole,
     BinaryLabel,
+    Capability,
     DatasetFormat,
     EvaluationField,
     EvaluatorFailurePolicy,
@@ -57,6 +60,7 @@ from mesmer.targets.http_json import HTTPJsonTarget
 from mesmer.targets.http_sse import HTTPSseTarget
 from mesmer.targets.litellm import LiteLLMTarget
 from mesmer.targets.websocket import WebSocketTarget
+from mesmer.techniques import BestOfNProbe, ConversationAgentProbe, Probe, ProposedProbe
 
 try:
     __version__ = version("mesmer-ai")
@@ -68,16 +72,21 @@ __all__ = [
     "AttackSuccessRate",
     "Benchmark",
     "BenchmarkRunner",
+    "BestOfNProbe",
     "BinaryLabel",
     "Budget",
+    "BudgetCurve",
+    "Capability",
     "Contains",
     "ContainsCriterion",
+    "ConversationAgentProbe",
     "CriteriaJudge",
     "DatasetColumnMap",
     "DatasetFormat",
     "EvaluationField",
     "EvaluatorFailurePolicy",
     "EvaluatorFailureReason",
+    "EvidenceMatrix",
     "HTTPJsonTarget",
     "HTTPSseTarget",
     "InitialState",
@@ -90,8 +99,10 @@ __all__ = [
     "Message",
     "Objective",
     "ObjectiveSource",
+    "Probe",
     "PromptLeakageJudge",
     "ProposalMessageMode",
+    "ProposedProbe",
     "PythonCallableTarget",
     "RefusalJudge",
     "RemoteDatasetSource",
@@ -120,6 +131,7 @@ __all__ = [
     "system_message",
     "techniques",
     "to_litellm_messages",
+    "transforms",
     "user_message",
     "workflow",
 ]

@@ -43,7 +43,7 @@ AGENT_SYSTEM_PROMPT = (
 
 
 async def main() -> None:
-    ensure_model_env()
+    ensure_model_env(require_attacker_model=True)
     actor = proposers.LiteLLMChatActor(
         model=ATTACKER_MODEL,
         role=ActorRole.ATTACKER,

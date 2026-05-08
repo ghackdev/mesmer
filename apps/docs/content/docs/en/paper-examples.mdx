@@ -14,6 +14,10 @@ Current examples include:
 
 Paper examples should use real model actors and targets through Mesmer wrappers, not direct LiteLLM calls or fake callable targets unless explicitly marked as tests.
 
+GCG-style work is currently represented as black-box reusable pieces, not as a full white-box GCG reproduction. True GCG needs tokenizer, logits, loss, gradient, and token-replacement access. Mesmer's current extraction keeps the useful hosted-model shape: source-backed `paper.gcg.*` prompt patterns, suffix-only proposal, deterministic suffix application through `ops.ApplyTransforms`, and response-start evaluation.
+
+Paper names should stay in examples unless the mechanism generalizes. Generic mechanics now have reusable homes: `Probe` for one-shot probes, `BestOfNProbe` for bounded sampling, `FrontierSearch` for iterative branching, `ConversationAgentProbe` for explicit multi-turn loops, and `PopulationFuzzing` for seed-pool mutation and reward workflows.
+
 Run a small TAP example:
 
 ```bash

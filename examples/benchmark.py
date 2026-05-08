@@ -83,7 +83,7 @@ async def main() -> None:
         attacks=[
             single_turn("single_turn"),
             iterative_templates("frontier_search", iterations=2, branching=3, width=2),
-            iterative_templates("autonomous_agent", iterations=5, branching=1, width=1),
+            iterative_templates("deterministic_template_sweep", iterations=5, branching=1, width=1),
         ],
         targets=[model_target(TARGET_SYSTEM_PROMPT)],
         metrics=[AttackSuccessRate(), MeanQueries(), MeanTurns()],

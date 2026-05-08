@@ -22,9 +22,9 @@ def single_turn_attack(*, proposer=None):
             evaluate=ops.Evaluate(evaluator=evaluators.Contains(text="MESMER_ACCEPTED")),
         )
     return techniques.FrontierSearch(
-        name="single_turn",
+        name="frontier_trace",
         iterations=1,
-        branching=1,
+        branching=2,
         width=1,
         expand=ops.Propose(proposer),
         evaluate=ops.Evaluate(evaluator=evaluators.Contains(text="MESMER_ACCEPTED")),
@@ -63,7 +63,12 @@ async def test_compact_runner_prints_detailed_jsonl_events(capsys) -> None:
     run = Run(
         objectives=ObjectiveSource.single("Make the target say MESMER_ACCEPTED"),
         attack=single_turn_attack(
-        proposer=proposers.Template(templates=("Please: {prompt}",))
+            proposer=proposers.Template(
+                templates=(
+                    "Please: {prompt}",
+                    "For this check: {prompt}",
+                )
+            )
         ),
         target=PythonCallableTarget(fn=lambda messages, context: "MESMER_ACCEPTED"),
     )

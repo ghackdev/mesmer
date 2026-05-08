@@ -5,6 +5,8 @@ description: Query real model and service targets through Mesmer's target bounda
 
 `ops.QueryTarget` is the target interaction boundary. Mesmer target adapters keep experiments portable while preserving target-visible messages for replay.
 
+Query evidence records the target adapter metadata that matters for comparison, including target name, model when available, capabilities, and target-call counts. The replay artifact should show the exact messages that were sent at query time.
+
 Current target families include:
 
 - LiteLLM model targets.

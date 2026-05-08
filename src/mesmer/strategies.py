@@ -25,7 +25,7 @@ from mesmer.core.enums import (
     EvaluatorFailureReason,
     ProposalMessageMode,
 )
-from mesmer.core.errors import EvaluatorParseError, StructuredOutputError
+from mesmer.core.errors import ConfigError, EvaluatorParseError, StructuredOutputError
 from mesmer.execution.state import Candidate
 from mesmer.llm_actors import ChatActor
 from mesmer.objectives.models import Objective
@@ -204,6 +204,7 @@ class StructuredLLMProposer(Proposer):
             metadata = {
                 "proposer": self.name,
                 "actor": self.actor.name,
+                "objective_goal": objective.goal,
                 "parent_trajectory_id": trajectory.id,
                 "branch_index": branch_index,
                 "raw_model_output": completion.raw,
@@ -460,6 +461,11 @@ class TopKSelector(FrontierSelector):
         trajectories: list[CandidateTrajectory],
         width: int,
     ) -> list[CandidateTrajectory]:
+        if trajectories and not any(trajectory.evaluations for trajectory in trajectories):
+            raise ConfigError(
+                "TopKSelector requires evaluated trajectories. Run ops.Evaluate before "
+                "ops.Select, or use a selector that does not rank by evaluation score."
+            )
         limit = self.k or width
 
         def score(trajectory: CandidateTrajectory) -> float:

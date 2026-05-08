@@ -54,20 +54,84 @@ flowchart TD
 
 ## Public API Shape
 
+One-shot probe:
+
+```python
+attack = techniques.Probe(
+    name="release_token_probe",
+    evaluate=ops.Evaluate(evaluator=evaluators.Contains(text="RELEASE_READY")),
+    stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
+)
+```
+
+`Probe` is the canonical one-shot technique. Use `prepare=[...]` when the probe
+needs a proposal or transform before the target call.
+
+```python
+attack = techniques.Probe(
+    name="encoded_probe",
+    prepare=[
+        ops.ApplyTransforms(transforms.Encode(codec="base64")),
+    ],
+    evaluate=ops.Evaluate(evaluator=evaluators.Contains(text="RELEASE_READY")),
+    stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
+)
+```
+
+`SingleTurnProbe` and `ProposedProbe` remain specialized convenience techniques.
+They should not be used to model search.
+
+Best-of-N probe:
+
+```python
+attack = techniques.BestOfNProbe(
+    name="best_of_n",
+    samples=16,
+    width=3,
+    prepare=[ops.Propose(proposers.StructuredLLMProposer(actor=attacker))],
+    evaluate=ops.Evaluate(evaluators.JudgePanel(evaluators=[...])),
+    stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
+    select=ops.Select(selectors.TopKSelector()),
+)
+```
+
 Frontier search:
 
 ```python
 attack = techniques.FrontierSearch(
     name="release_token",
     iterations=3,
-    branching=1,
+    branching=2,
     width=2,
     seed=ops.SeedFromObjective(),
     expand=ops.Propose(proposers.Template(...)),
+    pre_query=[
+        ops.CheckConstraints(constraints=[...]),
+        ops.Filter(selectors.ConstraintScoreSelector()),
+    ],
     query=ops.QueryTarget(),
     evaluate=ops.Evaluate(evaluators.Contains(text="RELEASE_READY")),
     stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
+    post_evaluate=[ops.AddFeedback(...)],
     select=ops.Select(selectors.TopKSelector()),
+)
+```
+
+`proposers.Template` is deterministic finite enumeration. Model-backed proposal
+uses `proposers.StructuredLLMProposer`. A single generated candidate belongs in
+`Probe(prepare=[ops.Propose(...)])`, not degenerate `FrontierSearch`.
+
+Conversation-agent probe:
+
+```python
+attack = techniques.ConversationAgentProbe(
+    name="conversation_agent",
+    turns=5,
+    branching=2,
+    propose=ops.Propose(proposers.StructuredLLMProposer(actor=attacker)),
+    evaluate=ops.Evaluate(evaluators.Criteria()),
+    stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
+    feedback=ops.AddFeedback(...),
 )
 ```
 
@@ -89,6 +153,22 @@ attack = techniques.PopulationFuzzing(
     stop=ops.StopWhen(conditions.ScoreAtLeast(10)),
 )
 ```
+
+Black-box GCG-inspired suffix search:
+
+```python
+attack = techniques.Probe(
+    name="suffix_probe",
+    prepare=[ops.ApplyTransforms(transforms.AppendSuffix("known suffix"))],
+    evaluate=ops.Evaluate(evaluator=evaluators.StartsWith(prefix="Sure, here is")),
+    stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
+)
+```
+
+This is not full GCG. True GCG is a white-box token optimizer that needs
+tokenizer, logits, loss, gradient, and token-replacement access. The black-box
+primitive split keeps suffix generation, suffix application, and response-shape
+evaluation separate.
 
 Run binding:
 
@@ -129,6 +209,10 @@ attack.state_schema()
 attack.workflow_graph()
 attack.describe()
 ```
+
+State slices now include `Constraints` for reusable pre-query or post-proposal
+checks. Constraint execution is explicit: `ops.CheckConstraints` records results
+and `ops.Filter` retains candidates through a selector.
 
 ## Operator Contract
 
@@ -180,6 +264,11 @@ Transitions make attack runs replayable and auditable. They record:
 - patch summary;
 - events and artifacts;
 - duration, errors, and later cost metadata.
+
+`ops.QueryTarget` is the target-call boundary. It stores a snapshot of the
+candidate at query time, increments target-call metadata, and preserves target
+capabilities in run evidence so reports can compare different target adapters
+without losing replay-critical context.
 
 ## Extension Ladder
 
@@ -253,7 +342,7 @@ class BestFirstSearch(techniques.Technique):
 
 | V1 | V2 |
 | --- | --- |
-| `topology.Search` is a wrapper around `runtime.Program`. | Algorithm-specific `techniques.FrontierSearch` / `PopulationFuzzing`. |
+| `topology.Search` is a wrapper around `runtime.Program`. | Algorithm-specific `techniques.Probe` / `FrontierSearch` / `PopulationFuzzing`. |
 | `runtime.Program` is public root and also a component. | Public `Program` is removed; internal `Workflow` composes operators. |
 | `Component` mixes leaf nodes, containers, and root. | `Operator` is one reusable transition; `Workflow` handles composition. |
 | `StateFact` validates coarse facts. | Operators declare typed state slice reads/writes. |

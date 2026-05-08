@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { getEmbeddingGlobeCopy } from '@/lib/copy/embedding-globe';
 
 type NodeKind = 'safe' | 'vulnerable';
 
@@ -38,24 +39,14 @@ const TRACE_HOLD_FRAMES = 18;
 const TRACE_FADE_FRAMES = TRACE_CYCLE_FRAMES - TRACE_SPAWN_FRAMES - TRACE_TRAVERSE_FRAMES - TRACE_HOLD_FRAMES;
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+const copy = getEmbeddingGlobeCopy();
 
 const safeNodes: GlobeNode[] = Array.from({ length: 74 }, (_, index) => {
   const offset = 2 / 74;
   const y = index * offset - 1 + offset / 2;
   const radius = Math.sqrt(1 - y * y);
   const angle = index * Math.PI * (3 - Math.sqrt(5));
-  const label =
-    {
-      5: 'refusal',
-      13: 'boundary held',
-      16: 'clarify',
-      28: 'policy',
-      37: 'ask permission',
-      43: 'safe answer',
-      52: 'sanitize',
-      57: 'redirect',
-      68: 'benign',
-    }[index] ?? undefined;
+  const label = copy.safeNodeLabels[index] ?? undefined;
 
   return {
     x: Math.cos(angle) * radius,
@@ -86,34 +77,34 @@ const vulnerableTraces: VulnerableTrace[] = [
   {
     id: 'persona-shift',
     points: [
-      tracePoint(-1.08, -0.36, 10, 'persona shift'),
+      tracePoint(-1.08, -0.36, 10, copy.vulnerableTraceLabels.personaShift[0]),
       tracePoint(-0.78, -0.12, 10.91),
-      tracePoint(-0.48, 0.05, 11.82, 'authority mimic'),
+      tracePoint(-0.48, 0.05, 11.82, copy.vulnerableTraceLabels.personaShift[1]),
       tracePoint(-0.18, 0.16, 12.73),
-      tracePoint(0.16, 0.14, 13.64, 'constraint gap'),
+      tracePoint(0.16, 0.14, 13.64, copy.vulnerableTraceLabels.personaShift[2]),
       tracePoint(0.46, -0.02, 14.55),
-      tracePoint(0.74, -0.2, 15.46, 'jailbreak path', 3.15),
+      tracePoint(0.74, -0.2, 15.46, copy.vulnerableTraceLabels.personaShift[3], 3.15),
     ],
   },
   {
     id: 'role-confusion',
     points: [
-      tracePoint(-0.66, 0.34, 16.2, 'role confusion'),
+      tracePoint(-0.66, 0.34, 16.2, copy.vulnerableTraceLabels.roleConfusion[0]),
       tracePoint(-0.34, 0.24, 17.01),
-      tracePoint(-0.02, 0.05, 17.82, 'policy gap'),
+      tracePoint(-0.02, 0.05, 17.82, copy.vulnerableTraceLabels.roleConfusion[1]),
       tracePoint(0.27, -0.1, 18.63),
-      tracePoint(0.57, -0.2, 19.44, 'hidden request'),
-      tracePoint(0.91, -0.34, 20.25, 'leak branch', 3.05),
+      tracePoint(0.57, -0.2, 19.44, copy.vulnerableTraceLabels.roleConfusion[2]),
+      tracePoint(0.91, -0.34, 20.25, copy.vulnerableTraceLabels.roleConfusion[3], 3.05),
     ],
   },
   {
     id: 'format-trap',
     points: [
-      tracePoint(-0.86, -0.52, 21.3, 'format trap'),
+      tracePoint(-0.86, -0.52, 21.3, copy.vulnerableTraceLabels.formatTrap[0]),
       tracePoint(-0.52, -0.34, 22.11),
-      tracePoint(-0.18, -0.13, 22.92, 'evaluator miss'),
+      tracePoint(-0.18, -0.13, 22.92, copy.vulnerableTraceLabels.formatTrap[1]),
       tracePoint(0.18, 0.04, 23.73),
-      tracePoint(0.55, 0.18, 24.54, 'unsafe continuation', 3.05),
+      tracePoint(0.55, 0.18, 24.54, copy.vulnerableTraceLabels.formatTrap[2], 3.05),
     ],
   },
 ];
@@ -406,7 +397,7 @@ export function EmbeddingGlobe() {
   }, []);
 
   return (
-    <div className="embedding-globe" aria-label="Rotating embedding network with safe and vulnerable paths" role="img">
+    <div className="embedding-globe" aria-label={copy.ariaLabel} role="img">
       <canvas ref={canvasRef} aria-hidden="true" className="embedding-globe-canvas" />
     </div>
   );

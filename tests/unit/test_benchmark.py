@@ -35,3 +35,10 @@ async def test_benchmark_expands_repetitions_and_metrics() -> None:
         "attack_success_rate": 1.0,
         "mean_queries": 1.0,
     }
+    assert report.evidence is not None
+    assert len(report.evidence.rows) == 2
+    assert {row.attack_name for row in report.evidence.rows} == {"single_turn"}
+    assert report.budget_curve is not None
+    assert [(point.budget, point.success_rate) for point in report.budget_curve.points] == [
+        (1, 1.0)
+    ]

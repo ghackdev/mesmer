@@ -15,6 +15,9 @@ Common operators include:
 
 - `ops.SeedFromObjective` creates the initial frontier.
 - `ops.Propose` creates candidate trajectories through a `proposers.Proposer`.
+- `ops.ApplyTransforms` executes deterministic candidate rewrites from `transforms`.
+- `ops.CheckConstraints` records candidate constraint evidence in `state.Constraints`.
+- `ops.Filter` retains candidates through selectors, commonly after constraint checks.
 - `ops.Select` retains candidates through selectors such as `selectors.TopKSelector`.
 - `ops.QueryTarget` is the target-call boundary.
 - `ops.Evaluate` writes evaluation results through `evaluators.ResponseEvaluator`.
@@ -24,13 +27,11 @@ Common operators include:
 
 Runtime state is typed enough to preserve replay-critical information without forcing every technique into a rigid class hierarchy. Built-in techniques infer their required state slices from operator declarations.
 
+`proposers.Template` is a deterministic finite enumerator. It formats the templates you provide; it does not call an attacker model. Use `proposers.StructuredLLMProposer` when the proposal step itself should be model-generated. Use `proposers.SuffixOnlyLLMProposer` when an attacker model should generate only appendable suffix text and the runtime should preserve the original user request.
+
 ```python
-attack = techniques.FrontierSearch(
-    name="release_token",
-    iterations=3,
-    branching=2,
-    width=2,
-    expand=ops.Propose(proposers.Template()),
+attack = techniques.Probe(
+    name="release_token_probe",
     evaluate=ops.Evaluate(evaluators.Contains(text="RELEASE_READY")),
     stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
 )
@@ -39,6 +40,8 @@ attack.state_schema()
 attack.workflow_graph()
 attack.describe()
 ```
+
+Use `FrontierSearch(pre_query=[...], post_evaluate=[...])` when the technique needs visible gates around target calls, such as constraint checks before querying or feedback after evaluation. Use `BestOfNProbe` for bounded one-step sampling, and `ConversationAgentProbe` for explicit multi-turn transcript loops.
 
 ## Design Rule
 

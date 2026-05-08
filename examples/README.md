@@ -17,6 +17,11 @@ export MESMER_LOG_FORMAT=rich
 `MESMER_TARGET_MODEL` is used by the target wrapper and is where the target system
 prompt is configured.
 
+Use `techniques.SingleTurnProbe` for fixed one-shot prompts and
+`techniques.ProposedProbe` when one proposer-generated candidate should be sent
+to the target. Use `techniques.FrontierSearch` only when the example actually
+branches, iterates, selects, or uses feedback as search state.
+
 If you want faster/cheaper Groq runs, override both models with
 `groq/llama-3.1-8b-instant`.
 
@@ -26,15 +31,17 @@ Set `MESMER_LOG_FORMAT=compact` for plain JSONL diagnostic logs that include
 hidden transform I/O and full event payloads. This is useful when pasting a run
 trace into an AI assistant for analysis.
 
-Set `MESMER_EXAMPLE_TARGET=local` to run the top-level examples against a
-deterministic in-process target instead of a model. This is intended for smoke
-tests of the Mesmer runtime, not for model behavior evaluation.
+Set `MESMER_EXAMPLE_TARGET=local` to run examples against a deterministic
+in-process target instead of a target model. This is intended for smoke tests of
+the Mesmer runtime, not for model behavior evaluation. Examples that use
+`proposers.StructuredLLMProposer`, such as `autonomous_agent.py`, still require
+an attacker model.
 
 ## Single Turn
 
-Scenario: a release-readiness assistant. A `FrontierSearch` technique proposes a
+Scenario: a release-readiness assistant. A `SingleTurnProbe` sends one
 release-token request, queries the target, evaluates the response, and stops on
-success.
+success. This is a smoke test of the runtime, not a search technique.
 
 ```bash
 uv run python examples/single_turn.py
@@ -52,7 +59,8 @@ uv run python examples/frontier_search.py
 
 ## Autonomous Agent
 
-Scenario: an onboarding-gate assistant. A frontier-search technique uses
+Scenario: an onboarding-gate assistant. A frontier-search technique uses an
+attacker model through `proposers.StructuredLLMProposer`, plus
 `ops.ContinueConversation` and `ops.AddFeedback` to generate the next conversation
 turn until it obtains the approval code or exhausts the turn budget.
 
@@ -63,8 +71,8 @@ uv run python examples/autonomous_agent.py
 ## Benchmark
 
 Scenario: an operations router with multiple route codes. The benchmark compares
-single-turn, frontier-search, and autonomous-agent techniques across several
-objective-specific success criteria.
+single-turn, frontier-search, and deterministic template-sweep techniques across
+several objective-specific success criteria.
 
 ```bash
 uv run python examples/benchmark.py

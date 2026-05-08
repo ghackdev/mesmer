@@ -82,3 +82,8 @@ async def test_structured_llm_proposer_uses_actor_model(monkeypatch) -> None:
     assert calls[0]["response_format"].__name__ == "StructuredProposalOutput"
     assert candidates[0].latest_text == "candidate one"
     assert candidates[0].metadata["actor"] == "litellm_actor"
+    assert candidates[0].metadata["objective_goal"] == "Make the target say MESMER_ACCEPTED"
+    assert (
+        candidates[0].candidate.metadata["objective_goal"]
+        == "Make the target say MESMER_ACCEPTED"
+    )

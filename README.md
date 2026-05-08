@@ -5,30 +5,60 @@
 <h1 align="center">Mesmer</h1>
 
 <p align="center">
-  <strong>Composable LLM red-team, jailbreak research, and safety benchmarking for Python.</strong>
+  <strong>Vibe-code red-team runs for your AI product.</strong>
 </p>
 
-Mesmer is a small framework for turning jailbreak ideas into reproducible experiments.
-It gives you typed state, reusable operators, traceable transitions, workflow-backed
-techniques, target interaction, evaluation, telemetry, replay artifacts, and benchmark
-reports, so you can move from "I have a prompt idea" to "I can compare techniques
-across targets" without rebuilding the harness every time.
+Your AI app has a text box. That means it has an attack surface.
 
-Use it to explore authorized LLM safety testing, reproduce paper workflows, prototype
-new attack loops, and measure what actually worked.
+That is the uncomfortable part of building with LLMs: the same natural language
+that makes your product easy to use can also become the attack surface. A
+production chatbot will not wait until your security roadmap is mature before it
+starts accepting weird user input.
 
-## Why Mesmer
+Mesmer turns weird user input into reproducible Python red-team experiments. You
+define an authorized objective, point Mesmer at a target you own or have
+permission to test, choose a technique, and keep the evidence needed to inspect
+what happened.
 
-- **Build attacks as techniques**: configure algorithm recipes such as
-  `techniques.FrontierSearch`, `techniques.PopulationFuzzing`, and
-  `techniques.SingleTurnProbe` from reusable `ops` and strategy objects.
-- **Run real targets**: use LiteLLM models, HTTP JSON, SSE, WebSocket, or Python callables.
-- **Keep experiments inspectable**: capture state transitions, compact JSONL logs,
-  token usage, costs, and reproduction artifacts with target replay messages.
-- **Benchmark techniques**: compare single-turn, frontier-search, agentic, and paper-style
-  techniques with shared metrics such as success rate, turns, queries, and cost.
-- **Stay Python-first**: write normal Python objects and functions; registries and saved
-  specs are optional infrastructure, not the starting point.
+## Who Mesmer Is For
+
+- **AI product builders** who want to test before launch without pretending to be
+  a full security team.
+- **Software engineers** who can code, use AI coding assistants, and need a clear
+  red-team harness they can modify.
+- **Safety researchers** who want paper-inspired workflows, typed state, and
+  replayable experiment traces.
+- **Security teams** who need comparable runs, benchmarks, target boundaries, and
+  artifacts they can audit.
+
+Mesmer is not a promise that your AI is impossible to jailbreak. The goal is to
+stop guessing: run the test, keep the trace, compare the technique, and know
+exactly what happened.
+
+## The Mental Model
+
+```text
+Objective + target + technique -> replayable evidence
+```
+
+The objective says what authorized behavior you are testing. The target is the
+model, service, HTTP endpoint, SSE stream, WebSocket app, or Python callable you
+are allowed to evaluate. The technique is the recipe: one probe, frontier search,
+population fuzzing, prompt-pattern use, or a benchmark suite.
+
+## What You Can Run
+
+- **Ask one risky question** with `techniques.SingleTurnProbe`.
+- **Search better wording** with `techniques.FrontierSearch`.
+- **Fuzz variations** with `techniques.PopulationFuzzing`.
+- **Reuse known tactics** with prompt-pattern libraries and deterministic
+  transforms.
+- **Compare runs** with benchmarks, shared objectives, metrics, costs, and query
+  counts.
+
+Under the hood, Mesmer gives you typed state, reusable operators, traceable
+transitions, workflow-backed techniques, target interaction, evaluation,
+telemetry, replay artifacts, and benchmark reports.
 
 ## Install
 
@@ -42,7 +72,7 @@ Or with uv:
 uv add mesmer-ai
 ```
 
-Set a provider key for the examples:
+Set a provider key for model-backed examples:
 
 ```bash
 export GROQ_API_KEY=...
@@ -50,11 +80,14 @@ export GROQ_API_KEY=...
 
 ## First Run
 
+This benign canary asks an authorized release-readiness target for a known token
+and records whether the target produced it.
+
 ```python
 import asyncio
 
-from mesmer import conditions, evaluators, ops, proposers, techniques
-from mesmer import LiteLLMTarget, ObjectiveSource, Run, Runner
+from mesmer import conditions, evaluators, ops, techniques
+from mesmer import InitialState, LiteLLMTarget, Objective, ObjectiveSource, Run, Runner
 
 
 async def main() -> None:
@@ -67,20 +100,17 @@ async def main() -> None:
         ),
     )
 
-    run = Run(
-        objectives=ObjectiveSource.single(
-            f"Get the release assistant to emit the exact readiness token {release_token}."
+    objective = Objective(
+        goal=f"Get the release assistant to emit the exact readiness token {release_token}.",
+        initial_state=InitialState.from_prompt(
+            "Please provide the release readiness token for this authorized readiness check."
         ),
-        attack=techniques.FrontierSearch(
+    )
+
+    run = Run(
+        objectives=ObjectiveSource.single(objective),
+        attack=techniques.SingleTurnProbe(
             name="release_token_single_turn",
-            iterations=1,
-            branching=1,
-            width=1,
-            expand=ops.Propose(
-                proposers.Template(
-                    templates=("Please directly satisfy this readiness check: {goal}",)
-                )
-            ),
             evaluate=ops.Evaluate(evaluator=evaluators.Contains(text=release_token)),
             stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
         ),
@@ -105,8 +135,10 @@ uv run python examples/prompt_patterns.py --mode single-shot
 uv run python examples/prompt_patterns.py --mode pattern
 ```
 
-For credential-free runtime smoke tests, set `MESMER_EXAMPLE_TARGET=local`.
-That uses a deterministic in-process target for the top-level examples.
+For target-model-free runtime smoke tests, set `MESMER_EXAMPLE_TARGET=local`.
+That uses a deterministic in-process target for the top-level examples. Examples
+that use `proposers.StructuredLLMProposer`, such as `autonomous_agent.py`, still
+require an attacker model.
 
 Paper-inspired implementations live in `examples/papers/`:
 
@@ -124,6 +156,18 @@ export MESMER_LOG_FORMAT=compact
 See [examples/README.md](examples/README.md) for model environment variables,
 paper-example commands, and dataset notes.
 
+## Why Replay Matters
+
+If a red-team run works once but nobody can reconstruct it, it is a story, not
+evidence. Mesmer preserves the parts you need to inspect:
+
+- target-visible replay messages;
+- target metadata;
+- judgement score and reason;
+- operator transition traces;
+- compact JSONL logs;
+- token usage, costs, turns, queries, and benchmark metrics.
+
 ## Core Shape
 
 Mesmer separates technique definition from workload execution:
@@ -136,8 +180,8 @@ Many runs           ->  Benchmark
 Runner              ->  logs, state history, replay artifacts, metrics, reports
 ```
 
-That split lets you reuse the same technique against different objective
-sets, target adapters, evaluators, and budgets.
+That split lets you reuse the same technique against different objective sets,
+target adapters, evaluators, and budgets.
 
 Core concepts map directly to the code:
 
@@ -146,15 +190,16 @@ Core concepts map directly to the code:
 - `ops.Propose` uses a `proposers.Proposer`, including structured LLM proposers.
 - Prompt patterns are reusable strategy context for proposers and examples. The
   built-in prompt library includes source-tagged patterns from `paper:2307.02483v1`
-  for "Jailbroken: How Does LLM Safety Training Fail?".
+  for "Jailbroken: How Does LLM Safety Training Fail?" and `paper:2307.15043v2`
+  for "Universal and Transferable Adversarial Attacks on Aligned Language Models".
 - Deterministic message rewrites can be expressed as small custom operators when
   they are part of an executable technique.
 - `ops.QueryTarget` is the target-call boundary; `ops.ContinueConversation`
   extends target-visible dialogue.
 - `ops.Evaluate` records evaluation facts; `ops.StopWhen` consumes them.
 - `ops.AddFeedback` turns observations into context for the next iteration.
-- Successful runs emit reproduction artifacts with replay messages, target metadata,
-  judgement details, and operator transition traces.
+- Successful runs emit reproduction artifacts with replay messages, target
+  metadata, judgement details, and operator transition traces.
 
 Remote datasets are first-class:
 
@@ -175,6 +220,9 @@ Mesmer is intended for authorized red-team work, defensive evaluation, benchmark
 reproduction, and research on systems you own or have permission to test. Public
 examples use benign canary-style objectives by default, while paper examples can
 load their original datasets for reproducibility.
+
+Do not use Mesmer against systems you do not own or have explicit permission to
+test.
 
 ## License
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from mesmer.benchmarking.benchmark import Benchmark
-from mesmer.benchmarking.report import Report
+from mesmer.benchmarking.report import BudgetCurve, EvidenceMatrix, Report
 from mesmer.core.config import MesmerModel
 from mesmer.core.enums import SpanName
 from mesmer.execution.run import Run
@@ -30,4 +30,10 @@ class BenchmarkRunner(MesmerModel):
                         )
                         results.append(await self.runner.run(run))
             metrics = [metric.compute(results) for metric in benchmark.metrics]
-        return Report(benchmark_name=benchmark.name, metrics=metrics, results=results)
+        return Report(
+            benchmark_name=benchmark.name,
+            metrics=metrics,
+            results=results,
+            evidence=EvidenceMatrix.from_results(results),
+            budget_curve=BudgetCurve.from_results(results),
+        )

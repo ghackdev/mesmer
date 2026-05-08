@@ -147,6 +147,46 @@ class TemplateWrap(Transform):
         return variants
 
 
+class AppendSuffix(Transform):
+    suffixes: tuple[str, ...]
+    separator: str = " "
+    scope: str = LATEST_USER
+    name: str = "append_suffix"
+
+    async def transform(
+        self,
+        objective: Objective,
+        trajectory: CandidateTrajectory,
+    ) -> list[CandidateTrajectory]:
+        indices = _message_indices(trajectory.candidate.messages, self.scope)
+        if not indices:
+            return []
+        variants: list[CandidateTrajectory] = []
+        for variant_index, suffix in enumerate(self.suffixes):
+            messages = [message.model_copy(deep=True) for message in trajectory.candidate.messages]
+            for index in indices:
+                messages[index].content = f"{messages[index].content}{self.separator}{suffix}"
+            metadata = {
+                "transform": self.name,
+                "scope": self.scope,
+                "suffix": suffix,
+                "separator": self.separator,
+                "variant_index": variant_index,
+                "operator_chain": [
+                    _spec_payload(
+                        self.name,
+                        {
+                            "scope": self.scope,
+                            "suffix": suffix,
+                            "separator": self.separator,
+                        },
+                    )
+                ],
+            }
+            variants.append(_child_trajectory(trajectory, messages, metadata))
+        return variants
+
+
 class PayloadSplit(Transform):
     pieces: int = Field(default=2, ge=2)
     scope: str = LATEST_USER
@@ -369,6 +409,8 @@ def _transform_from_spec(spec: TransformSpec) -> Transform:
         return Encode(**spec.params)
     if spec.name == "template_wrap":
         return TemplateWrap(**spec.params)
+    if spec.name == "append_suffix":
+        return AppendSuffix(**spec.params)
     if spec.name == "payload_split":
         return PayloadSplit(**spec.params)
     if spec.name == "character_rewrite":
@@ -407,6 +449,7 @@ __all__ = [
     "LATEST_USER",
     "NEW_USER_SINCE_PARENT",
     "SUPPORTED_SCOPES",
+    "AppendSuffix",
     "CharacterRewrite",
     "Compose",
     "Encode",

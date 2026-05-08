@@ -5,7 +5,7 @@ description: Compare Mesmer techniques across objectives, targets, and budgets.
 
 Benchmarks let you compare techniques under shared metrics.
 
-The benchmark example compares single-turn, frontier-search, and autonomous-agent techniques across several objective-specific success criteria:
+The benchmark example compares probe, frontier-search, and autonomous-agent techniques across several objective-specific success criteria:
 
 ```bash
 uv run python examples/benchmark.py
@@ -20,6 +20,13 @@ Useful benchmark dimensions include:
 - Cost.
 - Stop reason.
 - Reproduction artifact availability.
+- Row-level attempt evidence.
+- Success as query budget increases.
+
+Benchmark reports can include two higher-resolution views:
+
+- `EvidenceMatrix` keeps one row per attempt/evaluator result, including run, objective, technique, target, target capabilities, candidate, response, score, pass/fail, query count, and cost.
+- `BudgetCurve` shows how success changes as the allowed target-call budget increases.
 
 Remote datasets are first-class:
 
