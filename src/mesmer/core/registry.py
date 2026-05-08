@@ -50,9 +50,5 @@ def register_judge(name: str, primitive: type[T]) -> type[T]:
     return registry.register(PrimitiveKind.JUDGE, name, primitive)
 
 
-def register_attacker(name: str, primitive: type[T]) -> type[T]:
-    return registry.register(PrimitiveKind.ATTACKER, name, primitive)
-
-
 def register_transform(name: str, primitive: type[T]) -> type[T]:
     return registry.register(PrimitiveKind.TRANSFORM, name, primitive)

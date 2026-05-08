@@ -3,25 +3,36 @@ from __future__ import annotations
 import mesmer
 
 
-def test_legacy_primitive_names_are_not_exported() -> None:
+def test_removed_public_names_are_not_exported() -> None:
     removed = [
-        "AttackGraph",
-        "NodeFlow",
-        "TreeSearchFlow",
-        "AgentFlow",
-        "SingleTurnFlow",
-        "CandidateExpander",
-        "CandidatePruner",
+        "runtime",
+        "topology",
+        "generation",
+        "evaluation",
+        "selection",
+        "variation",
+        "population",
+        "stopping",
+        "targeting",
+        "initialization",
+        "constraints",
+        "data",
+        "search",
+        "flows",
+        "attackers",
     ]
 
     assert all(not hasattr(mesmer, name) for name in removed)
 
 
 def test_taxonomy_modules_are_exported() -> None:
-    assert mesmer.generation.Propose
-    assert mesmer.data.ObjectiveSource
-    assert mesmer.selection.Select
-    assert mesmer.evaluation.Assess
-    assert mesmer.targeting.Query
-    assert mesmer.prompts.Select
-    assert mesmer.transforms.Apply
+    assert mesmer.sources.ObjectiveSource
+    assert mesmer.techniques.FrontierSearch
+    assert mesmer.ops.Propose
+    assert mesmer.ops.QueryTarget
+    assert mesmer.ops.Evaluate
+    assert mesmer.ops.StopWhen
+    assert mesmer.proposers.Template
+    assert mesmer.evaluators.Contains
+    assert mesmer.selectors.TopKSelector
+    assert mesmer.conditions.ScoreAtLeast

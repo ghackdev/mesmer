@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from mesmer.stopping import Condition, ScoreAtLeast
+from mesmer.strategies import ScoreAtLeast, TerminationCondition
 
 __all__ = [
-    "Condition",
     "ScoreAtLeast",
+    "TerminationCondition",
 ]

@@ -2,10 +2,10 @@
 
 - This file is the current architecture and preference snapshot for the repository. Any meaningful repository change must update `CLAUDE.md` in the same change when it alters architecture, primitives, runtime behavior, logging, examples, or project conventions.
 - Record durable lessons learned, user preferences, design decisions, implementation constraints, and workflow conventions in `CLAUDE.md` as they emerge, so the next AI agent inherits the current project context instead of rediscovering it.
-- Prefer composition over inheritance. Keep base classes minimal; compose behavior from small components.
+- Prefer composition over inheritance. Keep base classes minimal; compose behavior from small operators and strategies.
 - This framework is brand new. Prefer clean breaking refactors over compatibility shims unless compatibility is explicitly requested.
 - Do not preserve dead code or legacy compatibility paths by default. Remove obsolete parsers, shims, and branches when replacing behavior.
-- Any LLM-backed component that needs machine-readable output must use provider-enforced structured output and validate it with a schema. Keep free-text LLM calls only for natural-language outputs.
+- Any LLM-backed primitive that needs machine-readable output must use provider-enforced structured output and validate it with a schema. Keep free-text LLM calls only for natural-language outputs.
 - Provider-enforced structured output is the default contract for machine-readable control flow. Do not add prompt-only JSON instructions plus ad hoc parsing unless the user explicitly asks for a temporary compatibility path.
 - Public APIs should be declarative, self-explaining, and optimized for experimentation.
 - Prefer named techniques and typed operators over flat class arguments when order/hierarchy matters.
@@ -18,11 +18,11 @@
 - Keep framework control state internal. Do not force techniques to declare fields like `stopped` or `stop_reason`.
 - Preserve compact state transition history for replay/debugging; logs alone are not enough.
 - TAP-style state should show algorithm data: frontier, iteration/depth, target-call count, best candidate, constraints, responses, evaluations, feedback.
-- Stop conditions are not evaluators. Evaluators produce facts; stop components consume facts.
+- Stop conditions are not evaluators. Evaluators produce facts; stop operators consume facts.
 - Feedback is not evaluation. Feedback turns observations/evaluations into attacker context for the next iteration.
-- Constraints are not hardcoded pre-target gates. They are components whose order in the tree determines when they run.
-- Search primitives should carry enough typed state to reproduce results. Candidate trajectories keep target replay messages and attacker-side history when a technique needs iterative refinement.
-- Successful runs must emit a reproduction artifact, not just a pass/fail summary. The artifact should include the exact target replay `messages`, target metadata, judgement score/reason, and search trace needed to manually replay the discovered case.
+- Constraints are not hardcoded pre-target gates. They are operators whose position in the workflow determines when they run.
+- Technique primitives should carry enough typed state to reproduce results. Candidate trajectories keep target replay messages and attacker-side history when a technique needs iterative refinement.
+- Successful runs must emit a reproduction artifact, not just a pass/fail summary. The artifact should include the exact target replay `messages`, target metadata, judgement score/reason, and operator trace needed to manually replay the discovered case.
 - The rich logger should end successful runs with a clear reproduction punchline. Compact logs should stay machine-readable JSONL and include the same artifact data without redundant fields like `mode`, `final_prompt`, or `target_response`.
 - Interactive example scripts should default to rich logs and offer an explicit compact/JSONL option for automation.
 - Extract stable reusable mechanics from papers, not paper-specific prompts, datasets, thresholds, URLs, or naming.
@@ -30,7 +30,7 @@
 - Paper implementations should remain generic at the primitive level while being able to express the paper's actual flow, loop structure, prompts, pruning/selection, target calls, evaluator calls, and stopping behavior.
 - Paper examples should use real model actors/targets through Mesmer wrappers, not direct LiteLLM calls or fake callable targets unless explicitly marked as tests.
 - Examples should showcase capability and make model/target/system prompt configuration obvious.
-- Example scripts should expose small-run controls for local testing, such as row limits, search depth, width, branching factor, and maximum parallelism when relevant.
+- Example scripts should expose small-run controls for local testing, such as row limits, iterations/depth, width, branching factor, and maximum parallelism when relevant.
 - `examples/papers/pair` implements PAIR as independent streams with one proposal/query/evaluation/refinement cycle per stream and prints aggregate plus optional per-call LiteLLM token/cost usage for attacker, evaluator, and target calls.
 - Optional dependencies should be grouped by generic primitive capability, not paper names. Fuzzing-related extras are `lexical-nlp`, `embedding-classifier`, `hf-sequence-classifier`, and aggregate `fuzzing`; concrete primitives must lazy-import and raise actionable install errors.
 - Paper examples that rely on third-party datasets should prefer pinned remote URLs plus a manifest over copying harmful datasets into the repository by default.
@@ -41,23 +41,23 @@
 - `State`, `Operator`, `Transition`, and `Workflow` are the durable runtime kernel. `Technique` is the user-facing recipe layer that assembles operators into a workflow.
 - Do not restore `runtime.Program`, `topology.Search`, or `topology.Iterate` as the canonical public authoring path. The old component-tree design is historical only.
 - New algorithm structure should normally be expressed as a named `Technique` with reusable operators. Add a custom operator for a new state transition, a workflow block only for a genuinely new control shape, and a technique only for a distinct algorithm skeleton.
-- Candidate generation should use `ops.Propose` plus a `proposers.Proposer`, or a clearly named operator in the generation/population family. Legacy expander/pruner-style families overlap with proposers/selectors and should not be restored for new paper primitives by default.
+- Candidate generation should use `ops.Propose` plus a `proposers.Proposer`, or a clearly named population operator. Legacy expander/pruner-style families overlap with proposers/selectors and should not be restored for new paper primitives by default.
 - Prompt patterns live under `prompts` and are reusable prompt tactics, templates, proposer hints, and transform suggestions. They are not executable transforms by themselves.
 - High-level paper guidance such as "competing objectives" should also use `prompts.PromptPattern` with `description`, `proposer_hint`, tags, and source metadata, but no concrete `templates` unless it should materialize directly. Selected prompt-pattern context is proposer inspiration for runtime generation.
 - Mismatched generalization should be represented as high-level prompt guidance, while concrete encodings such as Base64 stay as deterministic transforms or suggested transforms.
-- `proposers.StructuredLLM` default proposal prompts should include selected prompt-pattern context so prompt-pattern selection can guide runtime pattern generation without every example redefining the proposer prompt.
+- `proposers.StructuredLLMProposer` default proposal prompts should include selected prompt-pattern context so prompt-pattern selection can guide runtime pattern generation without every example redefining the proposer prompt.
 - `transforms.FromPromptPattern` should materialize only concrete templates and suggested transforms; guidance-only prompt patterns are context for proposers and should not duplicate the original candidate as a transform output.
-- Deterministic candidate/message rewrites live under `transforms`. Encoders such as Base64/ROT13, template wrappers, payload splitting, `Apply`, and `Expand` should be implemented there with typed provenance.
-- Keep `variation` for stochastic or learned mutation services. Do not put deterministic encoders under `prompts` or LLM/lexical mutators under `transforms`.
-- Candidate filtering and retention should use `ops.Select` and selector services such as `selectors.TopK` or `selectors.ConstraintScore`. Do not add new pruner families unless selectors cannot represent the behavior.
-- Search-time scoring should use `ops.Evaluate` plus `evaluators.Evaluator`. Keep `Judge` implementations only for run-level compatibility needs, but prefer evaluators inside operator-based techniques.
+- Deterministic candidate/message rewrite strategies live under `transforms`. Encoders such as Base64/ROT13, template wrappers, and payload splitting should be reusable strategies with typed provenance, then executed through operators or technique-specific state transitions.
+- Keep `mutators` for stochastic or learned mutation services. Do not put deterministic encoders under `prompts`, and do not put LLM or lexical mutators under `transforms`.
+- Candidate filtering and retention should use `ops.Select` and selector services such as `selectors.TopKSelector` or `selectors.ConstraintScoreSelector`. Do not add new pruner families unless selectors cannot represent the behavior.
+- Technique-time scoring should use `ops.Evaluate` plus `evaluators.ResponseEvaluator`. Keep `Judge` implementations only for run-level compatibility needs, but prefer evaluators inside operator-based techniques.
 - `ops.StopWhen` and termination conditions consume evaluation/state slices. Do not combine stopping, evaluation, or feedback into one primitive.
 - `ops.AddFeedback`, trajectory feedback, and reward updates belong to feedback/learning. Feedback should create future attacker context or update credit assignment; it should not be treated as a judgement.
 - `ops.QueryTarget` is the target interaction boundary. Multi-turn target-visible transcript updates should be explicit, such as `ops.ContinueConversation`.
 - Keep paper-specific prompts, datasets, URLs, thresholds, marker strings, and explanatory state subclass names in examples. Extract only stable reusable mechanics into core primitives.
 - Paper examples that introduce a new primitive must justify why it does not duplicate existing technique, operator, workflow, proposer/generator, selector, evaluator, mutation, feedback, target, stopping, data-source, or replay concepts.
-- JBFuzz-style seed pools, seed selection, prompt mutation, and reward updates are the current candidate area for a future evolutionary/population-search taxonomy. Until formalized, keep their APIs typed and reusable but avoid over-generalizing from one paper.
-- Reusable primitive names should describe responsibility rather than origin: prefer suffixes like `Proposer`, `Selector`, `Evaluator`, `Mutator`, `Condition`, `Source`, and `Component`; reserve paper names for example-local classes.
+- JBFuzz-style seed pools, seed selection, prompt mutation, and reward updates are the current candidate area for a future evolutionary/population taxonomy. Until formalized, keep their APIs typed and reusable but avoid over-generalizing from one paper.
+- Reusable primitive names should describe responsibility rather than origin: prefer suffixes like `Proposer`, `Selector`, `Evaluator`, `Mutator`, `Condition`, `Source`, `Operator`, and `Strategy`; reserve paper names for example-local classes.
 - The project license is Apache-2.0. Keep `LICENSE.md`, `pyproject.toml` license metadata, and the README license section aligned.
 - The public documentation site lives in `apps/docs` as a pnpm workspace package named `@mesmer/docs`.
 - The docs site uses Next.js, Fumadocs MDX/UI, Tailwind CSS, and small shadcn-style local UI components. Do not replace this with a custom documentation stack unless explicitly requested.

@@ -6,16 +6,13 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field, PrivateAttr
+from pydantic import Field
 
 from mesmer.core.config import MesmerModel
-from mesmer.core.enums import StateFact
 from mesmer.execution.state import Candidate
 from mesmer.objectives.models import Objective
-from mesmer.runtime.component import Component, RuntimeContext
-from mesmer.runtime.state import RuntimeState, StatePatch
-from mesmer.search.fuzzing import PromptSeedRecord, SeedPoolSource
-from mesmer.search.models import CandidateTrajectory
+from mesmer.population_strategies import PromptSeedRecord, SeedPoolSource
+from mesmer.trajectory import CandidateTrajectory
 from mesmer.transforms import TransformSpec
 
 PROMPT_PATTERNS_METADATA_KEY = "selected_prompt_patterns"
@@ -86,7 +83,7 @@ class PromptPatternSource(MesmerModel, ABC):
     async def load(
         self,
         objective: Objective,
-        context: RuntimeContext,
+        context: Any,
     ) -> PromptLibrary:
         raise NotImplementedError
 
@@ -98,7 +95,7 @@ class ListSource(PromptPatternSource):
     async def load(
         self,
         objective: Objective,
-        context: RuntimeContext,
+        context: Any,
     ) -> PromptLibrary:
         return PromptLibrary(patterns=self.patterns)
 
@@ -110,7 +107,7 @@ class JsonSource(PromptPatternSource):
     async def load(
         self,
         objective: Objective,
-        context: RuntimeContext,
+        context: Any,
     ) -> PromptLibrary:
         payload = json.loads(self.path.read_text(encoding="utf-8"))
         records = payload["patterns"] if isinstance(payload, dict) else payload
@@ -125,7 +122,7 @@ class BuiltinSource(PromptPatternSource):
     async def load(
         self,
         objective: Objective,
-        context: RuntimeContext,
+        context: Any,
     ) -> PromptLibrary:
         return PromptLibrary(patterns=BUILTIN_PROMPT_PATTERNS)
 
@@ -137,7 +134,7 @@ class PromptPatternSelector(MesmerModel, ABC):
     def select(
         self,
         library: PromptLibrary,
-        state: RuntimeState,
+        state: Any,
         trajectory: CandidateTrajectory,
         rng: random.Random,
         ledger: PromptUsageLedger,
@@ -151,7 +148,7 @@ class AllSelector(PromptPatternSelector):
     def select(
         self,
         library: PromptLibrary,
-        state: RuntimeState,
+        state: Any,
         trajectory: CandidateTrajectory,
         rng: random.Random,
         ledger: PromptUsageLedger,
@@ -167,7 +164,7 @@ class TagSelector(PromptPatternSelector):
     def select(
         self,
         library: PromptLibrary,
-        state: RuntimeState,
+        state: Any,
         trajectory: CandidateTrajectory,
         rng: random.Random,
         ledger: PromptUsageLedger,
@@ -193,7 +190,7 @@ class IdSelector(PromptPatternSelector):
     def select(
         self,
         library: PromptLibrary,
-        state: RuntimeState,
+        state: Any,
         trajectory: CandidateTrajectory,
         rng: random.Random,
         ledger: PromptUsageLedger,
@@ -209,7 +206,7 @@ class RandomSelector(PromptPatternSelector):
     def select(
         self,
         library: PromptLibrary,
-        state: RuntimeState,
+        state: Any,
         trajectory: CandidateTrajectory,
         rng: random.Random,
         ledger: PromptUsageLedger,
@@ -228,7 +225,7 @@ class WithoutReplacementSelector(PromptPatternSelector):
     def select(
         self,
         library: PromptLibrary,
-        state: RuntimeState,
+        state: Any,
         trajectory: CandidateTrajectory,
         rng: random.Random,
         ledger: PromptUsageLedger,
@@ -253,7 +250,7 @@ class RoundRobinSelector(PromptPatternSelector):
     def select(
         self,
         library: PromptLibrary,
-        state: RuntimeState,
+        state: Any,
         trajectory: CandidateTrajectory,
         rng: random.Random,
         ledger: PromptUsageLedger,
@@ -301,77 +298,6 @@ class PromptUsageLedger(MesmerModel):
         return record.uses if record else 0
 
 
-class Select(Component):
-    source: PromptPatternSource = Field(default_factory=BuiltinSource)
-    selector: PromptPatternSelector = Field(default_factory=AllSelector)
-    limit: int | None = Field(default=None, ge=1)
-    ledger_field: str = DEFAULT_PROMPT_USAGE_LEDGER_FIELD
-    rng_seed: int | None = None
-    name: str = "select_prompt_patterns"
-    requires: set[StateFact] = Field(default_factory=lambda: {StateFact.FRONTIER})
-    provides: set[StateFact] = Field(default_factory=lambda: {StateFact.FRONTIER})
-    _rng: random.Random = PrivateAttr()
-
-    def __init__(self, **data: object) -> None:
-        super().__init__(**data)
-        self._rng = random.Random(self.rng_seed)
-
-    async def apply(self, state: RuntimeState, context: RuntimeContext) -> StatePatch:
-        library = await self.source.load(state.objective, context)
-        ledger = _ledger(state, self.ledger_field)
-        frontier: list[CandidateTrajectory] = []
-        selected_count = 0
-        for trajectory in state.frontier:
-            selected = self.selector.select(library, state, trajectory, self._rng, ledger)
-            if self.limit is not None:
-                selected = selected[: self.limit]
-            _attach_patterns(trajectory, selected)
-            selected_count += len(selected)
-            frontier.append(trajectory)
-        _store_ledger(state, self.ledger_field, ledger)
-        context.attack.logger.emit(
-            "search.prompt_patterns.select",
-            source=self.source.name,
-            selector=self.selector.name,
-            candidates=len(frontier),
-            selected=selected_count,
-        )
-        return StatePatch(
-            frontier=frontier,
-            provided=self.provides,
-            metadata={f"{self.ledger_field}_size": len(ledger.records)},
-        )
-
-
-class MarkUsed(Component):
-    ledger_field: str = DEFAULT_PROMPT_USAGE_LEDGER_FIELD
-    success_score: float | None = None
-    name: str = "mark_prompt_patterns_used"
-    requires: set[StateFact] = Field(default_factory=lambda: {StateFact.FRONTIER})
-    provides: set[StateFact] = Field(default_factory=set)
-
-    async def apply(self, state: RuntimeState, context: RuntimeContext) -> StatePatch:
-        ledger = _ledger(state, self.ledger_field)
-        marked = 0
-        for trajectory in state.frontier:
-            successful = (
-                self.success_score is not None
-                and trajectory.best_score >= self.success_score
-            )
-            for pattern_id in trajectory.metadata.get(PROMPT_PATTERN_IDS_KEY, []):
-                ledger.mark(pattern_id, trajectory.id, state.iteration, successful)
-                marked += 1
-        _store_ledger(state, self.ledger_field, ledger)
-        context.attack.logger.emit(
-            "search.prompt_patterns.mark_used",
-            ledger=self.ledger_field,
-            marked=marked,
-        )
-        return StatePatch(
-            metadata={f"{self.ledger_field}_size": len(ledger.records)}
-        )
-
-
 class TemplateSeedSource(SeedPoolSource):
     source: PromptPatternSource = Field(default_factory=BuiltinSource)
     selector: PromptPatternSelector = Field(default_factory=AllSelector)
@@ -380,11 +306,11 @@ class TemplateSeedSource(SeedPoolSource):
     async def load(
         self,
         objective: Objective,
-        context: RuntimeContext,
+        context: Any,
         count: int | None = None,
     ) -> list[PromptSeedRecord]:
         library = await self.source.load(objective, context)
-        state = RuntimeState.for_objective(objective)
+        state = object()
         ledger = PromptUsageLedger()
         selected = self.selector.select(
             library,
@@ -1054,13 +980,14 @@ def _attach_patterns(
     trajectory.candidate.metadata.update(metadata)
 
 
-def _ledger(state: RuntimeState, field: str) -> PromptUsageLedger:
+def _ledger(state: Any, field: str) -> PromptUsageLedger:
     value = getattr(state, field, None)
     if isinstance(value, PromptUsageLedger):
         return value
     if isinstance(value, dict):
         return PromptUsageLedger.model_validate(value)
-    value = state.metadata.get(field)
+    metadata = getattr(state, "metadata", {})
+    value = metadata.get(field) if isinstance(metadata, dict) else None
     if isinstance(value, PromptUsageLedger):
         return value
     if isinstance(value, dict):
@@ -1070,49 +997,34 @@ def _ledger(state: RuntimeState, field: str) -> PromptUsageLedger:
     return ledger
 
 
-def _store_ledger(state: RuntimeState, field: str, ledger: PromptUsageLedger) -> None:
+def _store_ledger(state: Any, field: str, ledger: PromptUsageLedger) -> None:
     if hasattr(state, field):
         setattr(state, field, ledger)
     else:
-        state.metadata[field] = ledger.model_dump(mode="json")
+        metadata = getattr(state, "metadata", None)
+        if isinstance(metadata, dict):
+            metadata[field] = ledger.model_dump(mode="json")
 
-
-All = AllSelector
-Id = IdSelector
-Random = RandomSelector
-RoundRobin = RoundRobinSelector
-Source = PromptPatternSource
-Tag = TagSelector
-WithoutReplacement = WithoutReplacementSelector
 
 __all__ = [
     "DEFAULT_PROMPT_USAGE_LEDGER_FIELD",
     "PROMPT_PATTERNS_METADATA_KEY",
     "PROMPT_PATTERN_CONTEXT_KEY",
     "PROMPT_PATTERN_IDS_KEY",
-    "All",
     "AllSelector",
     "BuiltinSource",
-    "Id",
     "IdSelector",
     "JsonSource",
     "ListSource",
-    "MarkUsed",
     "PromptLibrary",
     "PromptPattern",
     "PromptPatternSelector",
     "PromptPatternSource",
     "PromptTemplate",
     "PromptUsageLedger",
-    "Random",
     "RandomSelector",
-    "RoundRobin",
     "RoundRobinSelector",
-    "Select",
-    "Source",
-    "Tag",
     "TagSelector",
     "TemplateSeedSource",
-    "WithoutReplacement",
     "WithoutReplacementSelector",
 ]

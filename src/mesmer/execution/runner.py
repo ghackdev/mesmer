@@ -5,8 +5,8 @@ from pydantic import Field
 from mesmer.artifacts.messages import Message, assistant_message, system_message
 from mesmer.core.config import MesmerModel
 from mesmer.core.enums import LogFormat, RunOutcome, RunStatus, SpanName
-from mesmer.core.errors import RuntimeExecutionError
 from mesmer.execution.budgets import BudgetTracker
+from mesmer.execution.context import AttackContext
 from mesmer.execution.run import Run
 from mesmer.execution.state import (
     AttackState,
@@ -14,7 +14,6 @@ from mesmer.execution.state import (
     ReproductionArtifact,
     ReproductionTarget,
 )
-from mesmer.flows.base import AttackContext
 from mesmer.telemetry.logger import RunLogger
 from mesmer.telemetry.tracing import start_span
 
@@ -92,8 +91,6 @@ class Runner(MesmerModel):
                 result = RunResult(run_id=run.id, status=RunStatus.SUCCEEDED, states=states)
             except Exception as exc:
                 logger.emit("run.error", error=str(exc))
-                if isinstance(exc, RuntimeExecutionError):
-                    states.append(exc.state.attack_state)
                 result = RunResult(
                     run_id=run.id,
                     status=RunStatus.FAILED,

@@ -48,7 +48,7 @@ def build_single_shot_run() -> Run:
 
 
 def build_pattern_run() -> Run:
-    pattern = prompts.PromptLibrary(patterns=prompts.BUILTIN_PROMPT_PATTERNS).by_tags(
+    pattern = prompts.PromptLibrary(patterns=prompts.BUILTIN_PROMPT_PATTERNS).tagged(
         {"readiness"}
     ).patterns[0]
     request = pattern.template_texts()[0].format(

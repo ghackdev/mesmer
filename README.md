@@ -25,8 +25,8 @@ new attack loops, and measure what actually worked.
 - **Run real targets**: use LiteLLM models, HTTP JSON, SSE, WebSocket, or Python callables.
 - **Keep experiments inspectable**: capture state transitions, compact JSONL logs,
   token usage, costs, and reproduction artifacts with target replay messages.
-- **Benchmark techniques**: compare single-turn, tree-search, agentic, and paper-style
-  flows with shared metrics such as success rate, turns, queries, and cost.
+- **Benchmark techniques**: compare single-turn, frontier-search, agentic, and paper-style
+  techniques with shared metrics such as success rate, turns, queries, and cost.
 - **Stay Python-first**: write normal Python objects and functions; registries and saved
   specs are optional infrastructure, not the starting point.
 
@@ -98,19 +98,22 @@ asyncio.run(main())
 
 ```bash
 uv run python examples/single_turn.py
-uv run python examples/tree_search.py
+uv run python examples/frontier_search.py
 uv run python examples/autonomous_agent.py
 uv run python examples/benchmark.py
 uv run python examples/prompt_patterns.py --mode single-shot
 uv run python examples/prompt_patterns.py --mode pattern
 ```
 
+For credential-free runtime smoke tests, set `MESMER_EXAMPLE_TARGET=local`.
+That uses a deterministic in-process target for the top-level examples.
+
 Paper-inspired implementations live in `examples/papers/`:
 
 - **TAP**: Tree of Attacks with Pruning
 - **PAIR**: Prompt Automatic Iterative Refinement
 - **JBFuzz**: mutation and fuzzing-style search
-- **Autonomous jailbreak agents**: agent loops with tool-like actions and memory
+- **Autonomous jailbreak agents**: frontier-search technique with iterative feedback
 
 For AI-pasteable diagnostic traces:
 

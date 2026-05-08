@@ -1,19 +1,17 @@
 from __future__ import annotations
 
 from mesmer.objectives.sources import ObjectiveSource
-from mesmer.population import CsvSource, ListSource, Source, StructuredLLMSource
-
-Csv = CsvSource
-List = ListSource
-StructuredLLM = StructuredLLMSource
+from mesmer.population_strategies import (
+    CsvSeedPoolSource,
+    ListSeedPoolSource,
+    SeedPoolSource,
+    StructuredLLMSeedPoolSource,
+)
 
 __all__ = [
-    "Csv",
-    "CsvSource",
-    "List",
-    "ListSource",
+    "CsvSeedPoolSource",
+    "ListSeedPoolSource",
     "ObjectiveSource",
-    "Source",
-    "StructuredLLM",
-    "StructuredLLMSource",
+    "SeedPoolSource",
+    "StructuredLLMSeedPoolSource",
 ]

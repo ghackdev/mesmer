@@ -24,11 +24,6 @@ class Benchmark(MesmerModel):
     budget: Budget = Field(default_factory=Budget)
     repetitions: int = DEFAULT_REPETITIONS
 
-    def __init__(self, **data: object) -> None:
-        if "attackers" in data and "attacks" not in data:
-            data["attacks"] = data.pop("attackers")
-        super().__init__(**data)
-
     @field_validator("judges", mode="before")
     @classmethod
     def _coerce_judges(cls, value: Judge | list[Judge]) -> list[Judge]:

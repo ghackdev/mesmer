@@ -62,7 +62,7 @@ export default async function BlogIndex(props: PageProps<'/blog'>) {
 
         <p className="font-mono text-xs uppercase tracking-[0.24em] text-console-muted">Mesmer blog</p>
         <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
-          Notes from the component runtime.
+          Notes from the operator runtime.
         </h1>
         <p className="mt-5 max-w-2xl text-base leading-7 text-console-muted">
           Research updates, architecture notes, implementation guides, and reproducibility writeups for authorized LLM safety testing.

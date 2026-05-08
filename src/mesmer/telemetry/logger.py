@@ -18,7 +18,6 @@ from mesmer.core.enums import LogFormat
 
 TEXT_FIELD_NAMES = frozenset(
     {
-        "attacker_message",
         "goal",
         "message",
         "parser_error",
@@ -34,28 +33,27 @@ TEXT_PANEL_EVENTS = frozenset(
     {
         "objective.start",
         "conversation.start",
-        "agent.plan",
         "transform.input",
         "transform.output",
         "target.call",
         "target.response",
         "judge.result",
         "objective.success",
-        "search.evaluator.raw",
-        "search.evaluator.parse_error",
+        "operator.evaluator.raw",
+        "operator.evaluator.parse_error",
         "run.error",
     }
 )
-SUCCESS_EVENTS = frozenset({"flow.stop", "run.finish"})
+SUCCESS_EVENTS = frozenset({"technique.stop", "run.finish"})
 ERROR_EVENTS = frozenset({"run.error"})
 CALL_EVENTS = frozenset({"target.call", "target.response", "judge.result"})
 INDENT_START_EVENTS = frozenset(
-    {"objective.start", "flow.start", "tree.depth.start", "agent.turn.start", "node.start"}
+    {"objective.start", "technique.start", "workflow.loop.start"}
 )
 INDENT_STOP_EVENTS = frozenset(
-    {"flow.stop", "tree.depth.finish", "agent.turn.finish", "node.finish", "run.finish"}
+    {"technique.stop", "run.finish"}
 )
-COMPACT_KEYS = ("attack", "target", "judges", "flow", "status", "succeeded", "attempts")
+COMPACT_KEYS = ("attack", "target", "judges", "technique", "status", "succeeded", "attempts")
 RUN_SUMMARY_KEYS = ("outcome", "execution_status", "succeeded", "attempts")
 
 
@@ -296,7 +294,7 @@ class RunLogger(MesmerModel):
         if isinstance(trace, dict) and trace:
             sections.extend(
                 [
-                    Rule("search trace", style="dim"),
+                    Rule("operator trace", style="dim"),
                     Panel(
                         self._json_syntax(trace),
                         border_style="dim",
@@ -436,8 +434,6 @@ class RunLogger(MesmerModel):
         return text
 
     def _detail_table(self, event: str, fields: dict[str, Any]) -> Table | None:
-        if event == "attacker.seed":
-            return None
         rows = [
             (key, self.text(str(value)))
             for key, value in fields.items()
@@ -485,8 +481,6 @@ class RunLogger(MesmerModel):
     def _adjust_indent_after(self, event: str) -> None:
         if event in INDENT_START_EVENTS:
             self.indent += 1
-        if event == "flow.stop":
-            self.indent = max(0, self.indent - 1)
 
     def _event_icon(self, event: str) -> str:
         if event in ERROR_EVENTS:
@@ -497,7 +491,7 @@ class RunLogger(MesmerModel):
             return "▶"
         if event.endswith(".finish"):
             return "✓"
-        if event == "flow.stop":
+        if event == "technique.stop":
             return "■"
         return "•"
 
@@ -510,14 +504,12 @@ class RunLogger(MesmerModel):
             return "cyan"
         if event.startswith("judge."):
             return "yellow"
-        if event.startswith("search.") or event.startswith("program."):
+        if event.startswith("operator."):
             return "blue"
         if (
-            event.startswith("attacker.")
-            or event.startswith("transform.")
-            or event.startswith("tree.")
-            or event.startswith("agent.")
-            or event.startswith("node.")
+            event.startswith("transform.")
+            or event.startswith("technique.")
+            or event.startswith("workflow.")
         ):
             return "blue"
         if event.startswith("objective."):

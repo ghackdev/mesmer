@@ -5,10 +5,10 @@ from types import SimpleNamespace
 import litellm
 from pydantic import BaseModel
 
-from mesmer import Objective, generation
+from mesmer import Objective, proposers
 from mesmer.artifacts.messages import user_message
 from mesmer.execution.state import Candidate
-from mesmer.search.models import CandidateTrajectory
+from mesmer.trajectory import CandidateTrajectory
 
 
 class UnitStructuredOutput(BaseModel):
@@ -27,7 +27,7 @@ async def test_litellm_chat_actor_complete_structured_passes_response_format(
 
     monkeypatch.setattr(litellm, "acompletion", fake_completion)
 
-    actor = generation.LiteLLMActor(model="openai/test-model")
+    actor = proposers.LiteLLMChatActor(model="openai/test-model")
     completion = await actor.complete_structured(
         [user_message("return json")],
         UnitStructuredOutput,
@@ -47,7 +47,7 @@ async def test_litellm_chat_actor_complete_structured_rejects_malformed_json(
 
     monkeypatch.setattr(litellm, "acompletion", fake_completion)
 
-    actor = generation.LiteLLMActor(model="openai/test-model")
+    actor = proposers.LiteLLMChatActor(model="openai/test-model")
     try:
         await actor.complete_structured([user_message("return json")], UnitStructuredOutput)
     except Exception as exc:
@@ -57,7 +57,7 @@ async def test_litellm_chat_actor_complete_structured_rejects_malformed_json(
         raise AssertionError("malformed structured output should raise")
 
 
-async def test_structured_llm_generator_uses_actor_model(monkeypatch) -> None:
+async def test_structured_llm_proposer_uses_actor_model(monkeypatch) -> None:
     calls = []
 
     async def fake_completion(**kwargs):
@@ -67,12 +67,12 @@ async def test_structured_llm_generator_uses_actor_model(monkeypatch) -> None:
 
     monkeypatch.setattr(litellm, "acompletion", fake_completion)
 
-    generator = generation.StructuredLLM(
-        actor=generation.LiteLLMActor(model="openai/test-attacker"),
+    proposer = proposers.StructuredLLMProposer(
+        actor=proposers.LiteLLMChatActor(model="openai/test-attacker"),
         system_prompt_template="Generate a candidate for {objective}.",
-        output=generation.StructuredOutputSpec(prompt_field="prompt", metadata_fields=()),
+        output=proposers.StructuredOutputSpec(prompt_field="prompt", metadata_fields=()),
     )
-    candidates = await generator.propose(
+    candidates = await proposer.propose(
         Objective("Make the target say MESMER_ACCEPTED"),
         CandidateTrajectory(candidate=Candidate(messages=[user_message("initial")])),
         count=1,

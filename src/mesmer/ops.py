@@ -10,25 +10,16 @@ from mesmer.artifacts.messages import assistant_message, user_message
 from mesmer.core.constants import SUCCESS_TERMINATION_REASON
 from mesmer.core.enums import JudgementStatus, TargetBinding
 from mesmer.core.errors import EvaluatorParseError
+from mesmer.execution.context import AttackContext
 from mesmer.execution.state import Attempt, Candidate
-from mesmer.flows.base import AttackContext
 from mesmer.judging.base import Judgement
-from mesmer.search.components import (
-    FeedbackBuilder,
-    FrontierSelector,
-    Proposer,
-    ResponseEvaluator,
-    TerminationCondition,
-    TopKSelector,
-)
-from mesmer.search.fuzzing import (
+from mesmer.population_strategies import (
     PromptMutator,
     PromptSeedRecord,
     SeedPoolSource,
     SeedSelectionPolicy,
     WeightedRandomSeedSelector,
 )
-from mesmer.search.models import CandidateTrajectory, EvaluationResult, SearchPolicy
 from mesmer.state import (
     Attempts,
     Evaluations,
@@ -43,7 +34,16 @@ from mesmer.state import (
     StopSignal,
     TargetResponses,
 )
+from mesmer.strategies import (
+    FeedbackBuilder,
+    FrontierSelector,
+    Proposer,
+    ResponseEvaluator,
+    TerminationCondition,
+    TopKSelector,
+)
 from mesmer.targets.base import Target, TargetContext
+from mesmer.trajectory import BranchingPolicy, CandidateTrajectory, EvaluationResult
 from mesmer.workflow import Operator
 
 
@@ -326,7 +326,7 @@ class LoadPopulation(Operator):
     writes: set[type] = Field(default_factory=lambda: {PopulationPool})
 
     async def run(self, state: State, context: AttackContext) -> Patch:
-        records = await self.source.load(state.objective, _source_context(context), self.count)
+        records = await self.source.load(state.objective, context, self.count)
         return Patch.set(
             PopulationPool(pool=type(state.get(PopulationPool).pool)(records=records)),
             population_size=len(records),
@@ -435,11 +435,11 @@ class AssignReward(Operator):
         )
 
 
-def _policy(context: AttackContext) -> SearchPolicy:
+def _policy(context: AttackContext) -> BranchingPolicy:
     policy = getattr(context, "policy", None)
-    if isinstance(policy, SearchPolicy):
+    if isinstance(policy, BranchingPolicy):
         return policy
-    return SearchPolicy()
+    return BranchingPolicy()
 
 
 async def _gather_limited(items: Iterable[Any], limit: int, fn):
@@ -519,9 +519,3 @@ def _materialize_prompt(template: str, objective) -> str:
         .replace("{goal}", objective.goal)
         .replace("{objective}", objective.goal)
     )
-
-
-def _source_context(context: AttackContext):
-    from mesmer.runtime.component import RuntimeContext
-
-    return RuntimeContext(attack=context)

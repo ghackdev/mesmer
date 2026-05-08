@@ -13,15 +13,11 @@ from pydantic import Field, PrivateAttr, create_model
 
 from mesmer.artifacts.messages import system_message, user_message
 from mesmer.core.config import MesmerModel
-from mesmer.core.enums import StateFact
 from mesmer.core.ids import new_id
-from mesmer.execution.state import Candidate
+from mesmer.llm_actors import ChatActor
 from mesmer.objectives.models import Objective
-from mesmer.runtime.component import Component, RuntimeContext
-from mesmer.runtime.state import RuntimeState, StatePatch
-from mesmer.search.actors import ChatActor
-from mesmer.search.components import ResponseEvaluator, template_context
-from mesmer.search.models import CandidateTrajectory, EvaluationResult, RatingScale
+from mesmer.strategies import ResponseEvaluator, template_context
+from mesmer.trajectory import CandidateTrajectory, EvaluationResult, RatingScale
 
 DEFAULT_JAILBREAK_PLACEHOLDERS = (
     "[INSERT PROMPT HERE]",
@@ -75,7 +71,7 @@ class SeedPoolSource(MesmerModel, ABC):
     async def load(
         self,
         objective: Objective,
-        context: RuntimeContext,
+        context: Any,
         count: int | None = None,
     ) -> list[PromptSeedRecord]:
         raise NotImplementedError
@@ -88,7 +84,7 @@ class ListSeedPoolSource(SeedPoolSource):
     async def load(
         self,
         objective: Objective,
-        context: RuntimeContext,
+        context: Any,
         count: int | None = None,
     ) -> list[PromptSeedRecord]:
         values = self.seeds if count is None else self.seeds[:count]
@@ -106,7 +102,7 @@ class CsvSeedPoolSource(SeedPoolSource):
     async def load(
         self,
         objective: Objective,
-        context: RuntimeContext,
+        context: Any,
         count: int | None = None,
     ) -> list[PromptSeedRecord]:
         records: list[PromptSeedRecord] = []
@@ -138,7 +134,7 @@ class StructuredLLMSeedPoolSource(SeedPoolSource):
     async def load(
         self,
         objective: Objective,
-        context: RuntimeContext,
+        context: Any,
         count: int | None = None,
     ) -> list[PromptSeedRecord]:
         requested = count or 1
@@ -168,26 +164,6 @@ class StructuredLLMSeedPoolSource(SeedPoolSource):
             )
             for template in templates
         ]
-
-
-class InitializeSeedPool(Component):
-    source: SeedPoolSource
-    count: int | None = Field(default=None, ge=1)
-    state_field: str = DEFAULT_SEED_POOL_STATE_FIELD
-    name: str = "initialize_seed_pool"
-    requires: set[StateFact] = Field(default_factory=lambda: {StateFact.OBJECTIVE})
-    provides: set[StateFact] = Field(default_factory=set)
-
-    async def apply(self, state: RuntimeState, context: RuntimeContext) -> StatePatch:
-        records = await self.source.load(state.objective, context, self.count)
-        pool = PromptSeedPool(records=records)
-        setattr(state, self.state_field, pool)
-        return StatePatch(
-            metadata={
-                f"{self.state_field}_size": len(records),
-                f"{self.state_field}_source": self.source.name,
-            }
-        )
 
 
 class SeedSelectionPolicy(MesmerModel, ABC):
@@ -466,109 +442,6 @@ class LexicalSubstitutionMutator(PromptMutator):
         return value in self.placeholders
 
 
-class GenerateFuzzCandidates(Component):
-    selector: SeedSelectionPolicy = Field(default_factory=WeightedRandomSeedSelector)
-    mutator: PromptMutator = Field(default_factory=LexicalSubstitutionMutator)
-    state_field: str = DEFAULT_SEED_POOL_STATE_FIELD
-    rng_seed: int | None = None
-    name: str = "generate_fuzz_candidates"
-    requires: set[StateFact] = Field(default_factory=lambda: {StateFact.OBJECTIVE})
-    provides: set[StateFact] = Field(default_factory=lambda: {StateFact.FRONTIER})
-    _rng: random.Random = PrivateAttr()
-
-    def __init__(self, **data: object) -> None:
-        super().__init__(**data)
-        self._rng = random.Random(self.rng_seed)
-
-    async def apply(self, state: RuntimeState, context: RuntimeContext) -> StatePatch:
-        pool = _seed_pool(state, self.state_field)
-        policy = context.policy
-        branching_factor = getattr(policy, "branching_factor", 1)
-        generated: list[CandidateTrajectory] = []
-        for branch_index in range(branching_factor):
-            seed_index = self.selector.select(pool, self._rng)
-            seed = pool.selected(seed_index)
-            mutated = await self.mutator.mutate(seed.text, self._rng)
-            prompt = _materialize_prompt(mutated.text, state.objective)
-            metadata = {
-                "seed_id": seed.id,
-                "seed_index": seed_index,
-                "seed_text": seed.text,
-                "selector": self.selector.name,
-                "mutator": self.mutator.name,
-                "branch_index": branch_index,
-                "mutated_template": mutated.text,
-                "replacements": mutated.replacements,
-                "mutation_metadata": mutated.metadata,
-            }
-            generated.append(
-                CandidateTrajectory(
-                    candidate=Candidate(messages=[user_message(prompt)], metadata=metadata),
-                    metadata=metadata,
-                )
-            )
-        context.attack.logger.emit(
-            "search.fuzz.generate",
-            selector=self.selector.name,
-            mutator=self.mutator.name,
-            candidates=len(generated),
-        )
-        return StatePatch(frontier=generated, provided=self.provides)
-
-
-class UpdateSeedRewards(Component):
-    state_field: str = DEFAULT_SEED_POOL_STATE_FIELD
-    success_score: float = 1.0
-    reward_scale: float = 1.0
-    add_successful_seeds: bool = True
-    name: str = "update_seed_rewards"
-    requires: set[StateFact] = Field(
-        default_factory=lambda: {StateFact.FRONTIER, StateFact.EVALUATIONS}
-    )
-    provides: set[StateFact] = Field(default_factory=set)
-
-    async def apply(self, state: RuntimeState, context: RuntimeContext) -> StatePatch:
-        pool = _seed_pool(state, self.state_field)
-        successes = 0
-        for trajectory in state.frontier:
-            seed_index = trajectory.metadata.get("seed_index")
-            if not isinstance(seed_index, int) or seed_index >= len(pool.records):
-                continue
-            seed = pool.records[seed_index]
-            seed.attempts += 1
-            score = trajectory.best_score
-            reward = score * self.reward_scale
-            seed.reward += reward
-            seed.weight = max(0.001, seed.weight + reward)
-            if score >= self.success_score:
-                seed.successes += 1
-                successes += 1
-                if self.add_successful_seeds:
-                    pool.append(
-                        PromptSeedRecord(
-                            text=str(trajectory.metadata.get("mutated_template") or seed.text),
-                            parent_id=seed.id,
-                            weight=max(1.0, reward),
-                            metadata={
-                                "source": self.name,
-                                "trajectory_id": trajectory.id,
-                                "parent_seed_id": seed.id,
-                            },
-                        )
-                    )
-        context.attack.logger.emit(
-            "search.fuzz.update_rewards",
-            seed_pool_size=len(pool.records),
-            successes=successes,
-        )
-        return StatePatch(
-            metadata={
-                f"{self.state_field}_size": len(pool.records),
-                "fuzz_successful_candidates": successes,
-            }
-        )
-
-
 class SequenceClassifier(MesmerModel, ABC):
     name: str
 
@@ -754,15 +627,6 @@ class EmbeddingClassifierSequenceClassifier(SequenceClassifier):
     def predict(self, sequences: list[str]) -> list[int]:
         self._fit()
         return self.classifier.predict(self.embedding_provider.embed(sequences))
-
-
-def _seed_pool(state: RuntimeState, field: str) -> PromptSeedPool:
-    pool = getattr(state, field, None)
-    if not isinstance(pool, PromptSeedPool):
-        raise ValueError(f"Runtime state does not contain a PromptSeedPool at '{field}'.")
-    if not pool.records:
-        raise ValueError("Seed pool is empty.")
-    return pool
 
 
 def _materialize_prompt(template: str, objective: Objective) -> str:

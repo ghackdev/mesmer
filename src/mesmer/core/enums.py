@@ -8,7 +8,6 @@ class PrimitiveKind(StrEnum):
     TRANSFORM = "transform"
     GATE = "gate"
     SELECTOR = "selector"
-    ATTACKER = "attacker"
     TARGET = "target"
     JUDGE = "judge"
     DETECTOR = "detector"
@@ -103,19 +102,6 @@ class TargetBinding(StrEnum):
     DEFAULT = "default"
 
 
-class StateFact(StrEnum):
-    OBJECTIVE = "objective"
-    FRONTIER = "frontier"
-    CANDIDATES = "candidates"
-    TARGET_RESPONSES = "target_responses"
-    EVALUATIONS = "evaluations"
-    ATTEMPTS = "attempts"
-    FEEDBACK = "feedback"
-    STOP_SIGNAL = "stop_signal"
-    ARTIFACTS = "artifacts"
-    CONVERSATIONS = "conversations"
-
-
 class JudgementStatus(StrEnum):
     PASS = "pass"
     FAIL = "fail"
@@ -125,10 +111,6 @@ class JudgementStatus(StrEnum):
 class SpanName(StrEnum):
     RUN = "mesmer.run"
     OBJECTIVE = "mesmer.objective"
-    ATTACKER_STEP = "mesmer.attacker.step"
-    AGENT_ACTION = "mesmer.agent.action"
-    TOOL_CALL = "mesmer.tool.call"
-    MCP_CALL = "mesmer.mcp.call"
     TRANSFORM = "mesmer.transform"
     SELECTOR = "mesmer.selector"
     TARGET_CALL = "mesmer.target.call"

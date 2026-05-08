@@ -25,6 +25,6 @@ The user-facing layer is a technique. A technique like `FrontierSearch` or `Popu
 
 The order still matters. Selection before a target query changes which messages are sent. Feedback after evaluation changes the next proposal. A stopping operator consumes recorded evidence instead of pretending to be a judge.
 
-The payoff is inspectability. A successful run should not end with only `true` or `false`; it should emit the target replay messages, target metadata, judgement details, and search trace needed to understand and reproduce the result.
+The payoff is inspectability. A successful run should not end with only `true` or `false`; it should emit the target replay messages, target metadata, judgement details, and operator trace needed to understand and reproduce the result.
 
 That is the shape Mesmer optimizes for: composable techniques, real target boundaries, typed state, operator transitions, and evidence you can inspect.

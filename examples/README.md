@@ -12,7 +12,7 @@ export MESMER_LOG_FORMAT=rich
 ```
 
 `MESMER_ATTACKER_MODEL` is used by attacker-side proposer strategies such as
-`proposers.StructuredLLM` in examples that call an attacker model.
+`proposers.StructuredLLMProposer` in examples that call an attacker model.
 
 `MESMER_TARGET_MODEL` is used by the target wrapper and is where the target system
 prompt is configured.
@@ -26,6 +26,10 @@ Set `MESMER_LOG_FORMAT=compact` for plain JSONL diagnostic logs that include
 hidden transform I/O and full event payloads. This is useful when pasting a run
 trace into an AI assistant for analysis.
 
+Set `MESMER_EXAMPLE_TARGET=local` to run the top-level examples against a
+deterministic in-process target instead of a model. This is intended for smoke
+tests of the Mesmer runtime, not for model behavior evaluation.
+
 ## Single Turn
 
 Scenario: a release-readiness assistant. A `FrontierSearch` technique proposes a
@@ -36,14 +40,14 @@ success.
 uv run python examples/single_turn.py
 ```
 
-## Tree Search
+## Frontier Search
 
 Scenario: a support-routing assistant. A `FrontierSearch` technique expands and
 selects candidate support-ticket messages, then evaluates selected candidates
 against the target. It stops on the first passing escalation-code candidate.
 
 ```bash
-uv run python examples/tree_search.py
+uv run python examples/frontier_search.py
 ```
 
 ## Autonomous Agent

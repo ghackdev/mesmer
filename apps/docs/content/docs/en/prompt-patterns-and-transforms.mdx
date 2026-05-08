@@ -13,11 +13,11 @@ The built-in prompt library includes source-tagged patterns from `paper:2307.024
 
 ## Transforms
 
-Deterministic candidate and message rewrites live under `transforms`. Examples include Base64, ROT13, template wrappers, payload splitting, `Apply`, and `Expand`.
+Deterministic candidate and message rewrite strategies live under `transforms`. Examples include Base64, ROT13, template wrappers, and payload splitting. They are executed by operators or technique-specific state transitions.
 
-## Variation
+## Mutators
 
-Use `variation` for stochastic or learned mutation services. Do not put deterministic encoders under `prompts`, and do not put LLM or lexical mutators under `transforms`.
+Use `mutators` for stochastic or learned mutation services. Do not put deterministic encoders under `prompts`, and do not put LLM or lexical mutators under `transforms`.
 
 Run the example:
 

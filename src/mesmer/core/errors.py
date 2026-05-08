@@ -51,10 +51,3 @@ class StructuredOutputError(MesmerError, ValueError):
         super().__init__(message)
         self.raw_output = raw_output
 
-
-class RuntimeExecutionError(MesmerError):
-    """Raised when a runtime program fails after creating partial state."""
-
-    def __init__(self, message: str, *, state: object) -> None:
-        super().__init__(message)
-        self.state = state

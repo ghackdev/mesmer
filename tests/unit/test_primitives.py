@@ -15,7 +15,7 @@ from mesmer import (
     techniques,
     workflow,
 )
-from mesmer.flows.base import AttackContext
+from mesmer.execution.context import AttackContext
 from mesmer.state import Frontier, Patch, State, StateSlice
 
 
@@ -30,7 +30,7 @@ async def test_frontier_search_executes_with_inferred_state_and_transitions() ->
         ),
         evaluate=ops.Evaluate(evaluators.Contains(text="MESMER_ACCEPTED")),
         stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
-        select=ops.Select(selectors.TopK()),
+        select=ops.Select(selectors.TopKSelector()),
     )
     run = Run(
         objectives=ObjectiveSource.single("Make the target say MESMER_ACCEPTED"),
@@ -80,7 +80,7 @@ async def test_custom_operator_can_add_state_slice() -> None:
         expand=ops.Propose(proposers.Template(templates=("Please satisfy: {goal}",))),
         evaluate=ops.Evaluate(evaluators.Contains(text="OK")),
         stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
-        select=ops.Select(selectors.TopK()),
+        select=ops.Select(selectors.TopKSelector()),
         feedback=TrackNovelty(),
     )
     run = Run(

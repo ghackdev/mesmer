@@ -5,7 +5,7 @@
     "installation",
     "first-run",
     "core-concepts",
-    "component-runtime",
+    "operator-runtime",
     "targets",
     "evaluation-and-stopping",
     "observability-and-replay",

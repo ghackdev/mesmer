@@ -15,11 +15,11 @@ Common operators include:
 
 - `ops.SeedFromObjective` creates the initial frontier.
 - `ops.Propose` creates candidate trajectories through a `proposers.Proposer`.
-- `ops.Select` retains candidates through selectors such as `selectors.TopK`.
+- `ops.Select` retains candidates through selectors such as `selectors.TopKSelector`.
 - `ops.QueryTarget` is the target-call boundary.
-- `ops.Evaluate` writes evaluation results through `evaluators.Evaluator`.
+- `ops.Evaluate` writes evaluation results through `evaluators.ResponseEvaluator`.
 - `ops.AddFeedback` turns observations into attacker context.
-- `ops.StopWhen` consumes evaluations through `conditions.Condition`.
+- `ops.StopWhen` consumes evaluations through `conditions.TerminationCondition`.
 - `ops.GenerateFromPopulation` and `ops.AssignReward` support population-style fuzzing.
 
 Runtime state is typed enough to preserve replay-critical information without forcing every technique into a rigid class hierarchy. Built-in techniques infer their required state slices from operator declarations.

@@ -9,12 +9,10 @@ from pydantic import Field
 
 from mesmer.artifacts.messages import Message
 from mesmer.core.config import MesmerModel
-from mesmer.core.enums import MessageRole, StateFact
+from mesmer.core.enums import MessageRole
 from mesmer.execution.state import Candidate
 from mesmer.objectives.models import Objective
-from mesmer.runtime.component import Component, RuntimeContext
-from mesmer.runtime.state import RuntimeState, StatePatch
-from mesmer.search.models import CandidateTrajectory
+from mesmer.trajectory import CandidateTrajectory
 
 LATEST_USER = "latest_user"
 ALL_USER = "all_user"
@@ -321,33 +319,6 @@ class FromPromptPattern(Transform):
         return variants
 
 
-class Apply(Component):
-    transform: Transform
-    name: str = "apply_transform"
-    requires: set[StateFact] = Field(default_factory=lambda: {StateFact.FRONTIER})
-    provides: set[StateFact] = Field(default_factory=lambda: {StateFact.FRONTIER})
-
-    def __init__(self, transform: Transform | None = None, **data: object) -> None:
-        if transform is not None and "transform" not in data:
-            data["transform"] = transform
-        super().__init__(**data)
-
-    async def apply(self, state: RuntimeState, context: RuntimeContext) -> StatePatch:
-        variants: list[CandidateTrajectory] = []
-        for trajectory in state.frontier:
-            variants.extend(await self.transform.transform(state.objective, trajectory))
-        context.attack.logger.emit(
-            "search.transform.apply",
-            transform=self.transform.name,
-            candidates=len(variants),
-        )
-        return StatePatch(frontier=variants, provided=self.provides)
-
-
-class Expand(Apply):
-    name: str = "expand_transform"
-
-
 def _message_indices(messages: list[Message], scope: str) -> list[int]:
     if scope not in SUPPORTED_SCOPES:
         raise ValueError(f"Unsupported transform scope: {scope}")
@@ -436,11 +407,9 @@ __all__ = [
     "LATEST_USER",
     "NEW_USER_SINCE_PARENT",
     "SUPPORTED_SCOPES",
-    "Apply",
     "CharacterRewrite",
     "Compose",
     "Encode",
-    "Expand",
     "FromPromptPattern",
     "PayloadSplit",
     "TemplateWrap",

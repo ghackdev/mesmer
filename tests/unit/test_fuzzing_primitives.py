@@ -9,27 +9,23 @@ from mesmer import (
     ObjectiveSource,
     Run,
     Runner,
-    evaluation,
-    generation,
+    conditions,
+    evaluators,
     mutators,
     ops,
-    population,
-    runtime,
+    proposers,
+    selectors,
     sources,
-    stopping,
     techniques,
-    variation,
 )
 from mesmer.execution.state import Candidate
-from mesmer.flows.base import AttackContext
-from mesmer.runtime.component import RuntimeContext
-from mesmer.search.actors import StructuredCompletion
-from mesmer.search.models import CandidateTrajectory, SearchPolicy
+from mesmer.llm_actors import StructuredCompletion
 from mesmer.targets.base import TargetResponse
 from mesmer.targets.callable import PythonCallableTarget
+from mesmer.trajectory import CandidateTrajectory
 
 
-class FakeSynonymProvider(variation.SynonymProvider):
+class FakeSynonymProvider(mutators.LexicalSynonymProvider):
     mapping: dict[str, str] = Field(default_factory=dict)
     name: str = "fake_synonym_provider"
 
@@ -41,7 +37,7 @@ class FakeSynonymProvider(variation.SynonymProvider):
         return [] if replacement is None else [replacement]
 
 
-class FakeSequenceClassifier(evaluation.SequenceClassifier):
+class FakeSequenceClassifier(evaluators.SequenceClassifier):
     marker: str = "ALLOW"
     name: str = "fake_sequence_classifier"
 
@@ -49,7 +45,7 @@ class FakeSequenceClassifier(evaluation.SequenceClassifier):
         return [1 if self.marker in sequence else 0 for sequence in sequences]
 
 
-class ScriptedChatActor(generation.Actor):
+class ScriptedChatActor(proposers.ChatActor):
     output: str
     name: str = "scripted_chat_actor"
 
@@ -61,12 +57,8 @@ class ScriptedChatActor(generation.Actor):
         return StructuredCompletion(parsed=parsed, raw=self.output)
 
 
-class FuzzTestState(runtime.RuntimeState):
-    seed_pool: population.Pool = Field(default_factory=population.Pool)
-
-
 async def test_lexical_substitution_preserves_placeholder() -> None:
-    mutator = variation.LexicalSubstitution(
+    mutator = mutators.LexicalSubstitutionMutator(
         provider=FakeSynonymProvider(mapping={"quick": "fast"}),
         replacement_probability=1.0,
     )
@@ -81,14 +73,14 @@ async def test_lexical_substitution_preserves_placeholder() -> None:
 
 
 def test_nltk_provider_defaults_to_auto_download_cache() -> None:
-    provider = variation.WordNetSynonyms()
+    provider = mutators.NltkWordNetSynonymProvider()
 
     assert provider.auto_download is True
     assert str(provider.data_dir) == ".mesmer/nltk_data"
 
 
 async def test_llm_template_mutator_preserves_placeholder() -> None:
-    mutator = variation.LLMTemplate(
+    mutator = mutators.LLMTemplateMutator(
         actor=ScriptedChatActor(
             output='{"template":"In a realistic audit, analyze: [INSERT PROMPT HERE]"}'
         )
@@ -103,41 +95,8 @@ async def test_llm_template_mutator_preserves_placeholder() -> None:
     assert result.metadata["actor"] == "scripted_chat_actor"
 
 
-async def test_generate_fuzz_candidates_materializes_objective() -> None:
-    state = FuzzTestState.for_objective(Objective("make marker"))
-    await population.Initialize(
-        source=population.ListSource(seeds=("Please handle [INSERT PROMPT HERE]",)),
-    ).apply(
-        state,
-        RuntimeContext(
-            attack=AttackContext(target=object(), judges=[], budget_tracker=object())
-        ),
-    )
-    generator = population.Generate(
-        selector=population.RoundRobin(),
-        mutator=variation.LexicalSubstitution(
-            provider=FakeSynonymProvider(mapping={"please": "kindly"}),
-            replacement_probability=1.0,
-        ),
-        rng_seed=0,
-    )
-
-    patch = await generator.apply(
-        state,
-        RuntimeContext(
-            attack=AttackContext(target=object(), judges=[], budget_tracker=object()),
-            policy=SearchPolicy(branching_factor=1),
-        ),
-    )
-
-    assert patch.frontier is not None
-    assert patch.frontier[0].latest_text == "Kindly handle make marker"
-    assert patch.frontier[0].metadata["seed_index"] == 0
-    assert state.seed_pool.records[0].visits == 1
-
-
 async def test_sequence_classifier_evaluator_scores_target_response() -> None:
-    evaluator = evaluation.SequenceClassification(classifier=FakeSequenceClassifier())
+    evaluator = evaluators.SequenceClassifierEvaluator(classifier=FakeSequenceClassifier())
     trajectory = CandidateTrajectory(
         candidate=Candidate(messages=[]),
         last_response=TargetResponse(text="ALLOW"),
@@ -150,23 +109,25 @@ async def test_sequence_classifier_evaluator_scores_target_response() -> None:
     assert result.metadata["classifier"] == "fake_sequence_classifier"
 
 
-async def test_fuzzing_program_records_success_and_seed_reward() -> None:
+async def test_population_fuzzing_records_success_and_seed_reward() -> None:
     technique = techniques.PopulationFuzzing(
         name="unit_fuzz",
         iterations=1,
         branching=1,
         width=1,
-        seeds=sources.List(seeds=("Please handle [INSERT PROMPT HERE]",)),
+        seeds=sources.ListSeedPoolSource(seeds=("Please handle [INSERT PROMPT HERE]",)),
         generate=ops.GenerateFromPopulation(
-            selector=population.RoundRobin(),
-            mutator=mutators.LexicalSubstitution(
+            selector=selectors.RoundRobinSeedSelector(),
+            mutator=mutators.LexicalSubstitutionMutator(
                 provider=FakeSynonymProvider(mapping={"please": "kindly"}),
                 replacement_probability=1.0,
             ),
         ),
-        evaluate=ops.Evaluate(evaluation.SequenceClassification(classifier=FakeSequenceClassifier())),
+        evaluate=ops.Evaluate(
+            evaluators.SequenceClassifierEvaluator(classifier=FakeSequenceClassifier())
+        ),
         reward=ops.AssignReward(success_score=1),
-        stop=ops.StopWhen(stopping.ScoreAtLeast(1)),
+        stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
     )
     run = Run(
         objectives=ObjectiveSource.single("make marker"),

@@ -44,7 +44,7 @@ AGENT_SYSTEM_PROMPT = (
 
 async def main() -> None:
     ensure_model_env()
-    actor = proposers.LiteLLMActor(
+    actor = proposers.LiteLLMChatActor(
         model=ATTACKER_MODEL,
         role=ActorRole.ATTACKER,
         name="autonomous_agent",
@@ -55,7 +55,7 @@ async def main() -> None:
         branching=1,
         width=1,
         expand=ops.Propose(
-            proposer=proposers.StructuredLLM(
+            proposer=proposers.StructuredLLMProposer(
                 actor=actor,
                 system_prompt_template=AGENT_SYSTEM_PROMPT,
                 user_prompt_template=(
@@ -75,11 +75,11 @@ async def main() -> None:
         evaluate=ops.Evaluate(evaluator=evaluators.Contains(text=APPROVAL_CODE)),
         stop=ops.StopWhen(condition=conditions.ScoreAtLeast(1)),
         feedback=ops.AddFeedback(
-            feedback=feedback.Template(
+            feedback=feedback.TemplateFeedback(
                 "response={response}; score={score}; transcript={transcript}"
             ),
         ),
-        select=ops.Select(selectors.TopK(k=1)),
+        select=ops.Select(selectors.TopKSelector(k=1)),
     )
     run = Run(
         objectives=ObjectiveSource.single(

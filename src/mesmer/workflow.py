@@ -7,7 +7,7 @@ from pydantic import Field
 
 from mesmer.core.config import MesmerModel
 from mesmer.core.errors import ConfigError
-from mesmer.flows.base import AttackContext
+from mesmer.execution.context import AttackContext
 from mesmer.state import Patch, State, StateSlice
 from mesmer.transitions import Transition
 

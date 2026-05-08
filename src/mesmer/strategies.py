@@ -27,9 +27,9 @@ from mesmer.core.enums import (
 )
 from mesmer.core.errors import EvaluatorParseError, StructuredOutputError
 from mesmer.execution.state import Candidate
+from mesmer.llm_actors import ChatActor
 from mesmer.objectives.models import Objective
-from mesmer.search.actors import ChatActor
-from mesmer.search.models import (
+from mesmer.trajectory import (
     CandidateTrajectory,
     ConstraintResult,
     EvaluationResult,

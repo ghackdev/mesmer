@@ -1,6 +1,6 @@
-# Primitive Component Tree V2
+# Primitive Architecture
 
-This document describes the target primitive design for Mesmer V2.
+This document describes the target primitive design for Mesmer.
 `primitive-component-tree.md` records the old implementation. This file is the
 new cornerstone.
 
@@ -65,9 +65,9 @@ attack = techniques.FrontierSearch(
     seed=ops.SeedFromObjective(),
     expand=ops.Propose(proposers.Template(...)),
     query=ops.QueryTarget(),
-    evaluate=ops.Evaluate(evaluators.Contains("RELEASE_READY")),
+    evaluate=ops.Evaluate(evaluators.Contains(text="RELEASE_READY")),
     stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
-    select=ops.Select(selectors.TopK()),
+    select=ops.Select(selectors.TopKSelector()),
 )
 ```
 
@@ -78,13 +78,13 @@ attack = techniques.PopulationFuzzing(
     name="jbfuzz",
     iterations=20,
     branching=4,
-    seeds=sources.Csv("seeds.csv"),
+    seeds=sources.CsvSeedPoolSource(path="seeds.csv"),
     generate=ops.GenerateFromPopulation(
-        selector=selectors.UCB(),
-        mutator=mutators.LexicalSubstitution(),
+        selector=selectors.UCBSeedSelector(),
+        mutator=mutators.LexicalSubstitutionMutator(),
     ),
     query=ops.QueryTarget(),
-    evaluate=ops.Evaluate(evaluators.LLMRating(...)),
+    evaluate=ops.Evaluate(evaluators.LLMRatingEvaluator(...)),
     reward=ops.AssignReward(),
     stop=ops.StopWhen(conditions.ScoreAtLeast(10)),
 )
@@ -136,9 +136,13 @@ Operators are the core extension unit.
 
 ```python
 class QueryTarget(ops.Operator):
-    reads = {state.Frontier}
-    writes = {state.TargetResponses, state.Attempts}
-    capabilities = {"target.call"}
+    reads: set[type[state.StateSlice]] = Field(
+        default_factory=lambda: {state.Frontier}
+    )
+    writes: set[type[state.StateSlice]] = Field(
+        default_factory=lambda: {state.TargetResponses, state.Attempts}
+    )
+    capabilities: set[str] = Field(default_factory=lambda: {"target.call"})
 
     async def run(self, state, context):
         frontier = state.get(state.Frontier)
@@ -202,9 +206,13 @@ Prefer the smallest extension:
 
 ```python
 class TrackNovelty(ops.Operator):
-    name = "track_novelty"
-    reads = {state.Frontier}
-    writes = {state.NoveltyLedger}
+    name: str = "track_novelty"
+    reads: set[type[state.StateSlice]] = Field(
+        default_factory=lambda: {state.Frontier}
+    )
+    writes: set[type[state.StateSlice]] = Field(
+        default_factory=lambda: {state.NoveltyLedger}
+    )
 
     async def run(self, state, context):
         frontier = state.get(state.Frontier)

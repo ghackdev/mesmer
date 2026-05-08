@@ -2,7 +2,7 @@
 
 This audit supersedes the old component-tree taxonomy. The historical analysis is
 preserved in `primitive-component-tree.md`; the target architecture is documented
-in `primitive-component-tree-v2.md`.
+in `primitive-architecture.md`.
 
 ## Current Cornerstone
 
@@ -21,7 +21,7 @@ The public design layers are:
 | Workflows | Internal control algebra. | `workflow.Sequence`, `workflow.Loop` |
 | Transitions | Replay/debug record for each operator run. | `transitions.Transition` |
 | Techniques | User-facing algorithm recipes. | `techniques.SingleTurnProbe`, `techniques.FrontierSearch`, `techniques.PopulationFuzzing` |
-| Strategies/services | Non-executable behavior used by operators. | `proposers.Template`, `evaluators.Contains`, `selectors.TopK`, `mutators.LexicalSubstitution`, `conditions.ScoreAtLeast`, `sources.List` |
+| Strategies/services | Non-executable behavior used by operators. | `proposers.Template`, `evaluators.Contains`, `selectors.TopKSelector`, `mutators.LexicalSubstitutionMutator`, `conditions.ScoreAtLeast`, `sources.ListSeedPoolSource` |
 
 ## Extension Rule
 

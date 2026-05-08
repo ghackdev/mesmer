@@ -55,7 +55,7 @@ def iterative_templates(
         branching=branching,
         width=width,
         expand=ops.Propose(proposers.Template()),
-        select=ops.Select(selectors.KeywordOverlap()),
+        select=ops.Select(selectors.KeywordOverlapSelector()),
         evaluate=ops.Evaluate(evaluator=evaluators.Criteria()),
         stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
     )
@@ -82,7 +82,7 @@ async def main() -> None:
         objectives=ObjectiveSource.list(objectives),
         attacks=[
             single_turn("single_turn"),
-            iterative_templates("tree_search", iterations=2, branching=3, width=2),
+            iterative_templates("frontier_search", iterations=2, branching=3, width=2),
             iterative_templates("autonomous_agent", iterations=5, branching=1, width=1),
         ],
         targets=[model_target(TARGET_SYSTEM_PROMPT)],

@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from mesmer.variation import (
-    LexicalSubstitution,
-    LLMTemplate,
+from mesmer.population_strategies import (
+    LexicalSubstitutionMutator,
+    LexicalSynonymProvider,
+    LLMTemplateMutator,
     MutatedPrompt,
-    Mutator,
-    SynonymProvider,
-    WordNetSynonyms,
+    NltkWordNetSynonymProvider,
+    PromptMutator,
 )
 
 __all__ = [
-    "LLMTemplate",
-    "LexicalSubstitution",
+    "LLMTemplateMutator",
+    "LexicalSubstitutionMutator",
+    "LexicalSynonymProvider",
     "MutatedPrompt",
-    "Mutator",
-    "SynonymProvider",
-    "WordNetSynonyms",
+    "NltkWordNetSynonymProvider",
+    "PromptMutator",
 ]

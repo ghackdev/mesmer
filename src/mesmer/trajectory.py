@@ -11,7 +11,7 @@ from mesmer.execution.state import Candidate
 from mesmer.targets.base import TargetResponse
 
 
-class SearchPolicy(MesmerModel):
+class BranchingPolicy(MesmerModel):
     iterations: int = Field(default=3, ge=1)
     branching_factor: int = Field(default=3, ge=1)
     width: int = Field(default=2, ge=1)

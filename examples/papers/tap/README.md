@@ -8,7 +8,7 @@ The current implementation uses the new architecture:
 ```text
 Technique: techniques.FrontierSearch
 Operators: ops.Propose -> ops.QueryTarget -> ops.Evaluate -> ops.StopWhen -> ops.Select
-Strategies: proposers.StructuredLLM, evaluators.Contains, selectors.TopK
+Strategies: proposers.StructuredLLMProposer, evaluators.Contains, selectors.TopKSelector
 State: inferred from operator reads/writes
 Trace: recorded as operator transitions in state_history
 ```

@@ -10,9 +10,9 @@ from mesmer.core.enums import JudgementStatus
 from mesmer.execution.state import AttackState, Attempt
 from mesmer.judging.base import Judgement
 from mesmer.objectives.models import Objective as ObjectiveModel
-from mesmer.search.fuzzing import PromptSeedPool
-from mesmer.search.models import CandidateTrajectory, EvaluationResult
+from mesmer.population_strategies import PromptSeedPool
 from mesmer.targets.base import TargetResponse
+from mesmer.trajectory import CandidateTrajectory, EvaluationResult
 
 
 class StateSlice(MesmerModel):

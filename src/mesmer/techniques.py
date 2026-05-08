@@ -6,9 +6,9 @@ from typing import Any
 from pydantic import Field
 
 from mesmer.core.config import MesmerModel
-from mesmer.core.constants import DEFAULT_SEARCH_STOP_REASON
+from mesmer.core.constants import DEFAULT_TECHNIQUE_STOP_REASON
+from mesmer.execution.context import AttackContext
 from mesmer.execution.state import AttackState
-from mesmer.flows.base import AttackContext
 from mesmer.objectives.models import Objective
 from mesmer.ops import (
     AssignReward,
@@ -18,8 +18,8 @@ from mesmer.ops import (
     SeedFromObjective,
     Select,
 )
-from mesmer.search.models import SearchPolicy
 from mesmer.state import Metadata, Patch, State, StateSlice, StopSignal
+from mesmer.trajectory import BranchingPolicy
 from mesmer.workflow import Loop, Operator, Sequence, Workflow
 
 
@@ -57,16 +57,16 @@ class Technique(MesmerModel, ABC):
         )
         state.apply_patch(
             Patch.set(
-                Metadata(values={"stop_reason": DEFAULT_SEARCH_STOP_REASON}),
+                Metadata(values={"stop_reason": DEFAULT_TECHNIQUE_STOP_REASON}),
             )
         )
         await workflow.run(state, self._context(context))
         if not state.get(StopSignal).reason:
-            state.apply_patch(Patch(metadata={"stop_reason": DEFAULT_SEARCH_STOP_REASON}))
+            state.apply_patch(Patch(metadata={"stop_reason": DEFAULT_TECHNIQUE_STOP_REASON}))
         context.logger.emit(
             "technique.stop",
             technique=self.name,
-            reason=state.attack_state.metadata.get("stop_reason", DEFAULT_SEARCH_STOP_REASON),
+            reason=state.attack_state.metadata.get("stop_reason", DEFAULT_TECHNIQUE_STOP_REASON),
         )
         return state.to_attack_state()
 
@@ -105,7 +105,7 @@ class FrontierSearch(Technique):
     def _context(self, context: AttackContext) -> AttackContext:
         return context.model_copy(
             update={
-                "policy": SearchPolicy(
+                "policy": BranchingPolicy(
                     iterations=self.iterations,
                     branching_factor=self.branching,
                     width=self.width,
@@ -166,7 +166,7 @@ class PopulationFuzzing(Technique):
     def _context(self, context: AttackContext) -> AttackContext:
         return context.model_copy(
             update={
-                "policy": SearchPolicy(
+                "policy": BranchingPolicy(
                     iterations=self.iterations,
                     branching_factor=self.branching,
                     width=self.width,

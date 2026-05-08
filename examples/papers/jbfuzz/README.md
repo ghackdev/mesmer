@@ -7,7 +7,7 @@ The current implementation uses the new architecture:
 ```text
 Technique: techniques.PopulationFuzzing
 Operators: ops.LoadPopulation -> ops.GenerateFromPopulation -> ops.QueryTarget -> ops.Evaluate -> ops.AssignReward -> ops.StopWhen
-Strategies: sources.List, selectors.UCB, mutators.Mutator, evaluators.Contains
+Strategies: sources.ListSeedPoolSource, selectors.UCBSeedSelector, mutators.PromptMutator, evaluators.Contains
 State: inferred population pool, reward ledger, frontier, attempts, responses, evaluations
 Trace: recorded as operator transitions in state_history
 ```

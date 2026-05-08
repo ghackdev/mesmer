@@ -48,12 +48,12 @@ async def main() -> None:
         ),
     )
     flow = techniques.FrontierSearch(
-        name="support_escalation_tree_search",
+        name="support_escalation_frontier_search",
         iterations=2,
         branching=3,
         width=2,
         expand=ops.Propose(proposers.Template()),
-        select=ops.Select(selectors.KeywordOverlap()),
+        select=ops.Select(selectors.KeywordOverlapSelector()),
         evaluate=ops.Evaluate(evaluator=evaluators.Contains(text=ESCALATION_CODE)),
         stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
     )

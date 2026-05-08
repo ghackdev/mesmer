@@ -22,13 +22,6 @@ class Run(MesmerModel):
     recorder: Recorder = Field(default_factory=MemoryRecorder)
     metadata: dict[str, str] = Field(default_factory=dict)
 
-    def __init__(self, **data: object) -> None:
-        if "attacker" in data and "attack" not in data:
-            data["attack"] = data.pop("attacker")
-        if "judge" in data and "judges" not in data:
-            data["judges"] = data.pop("judge")
-        super().__init__(**data)
-
     @field_validator("judges", mode="before")
     @classmethod
     def _coerce_judges(cls, value: Judge | list[Judge]) -> list[Judge]:
