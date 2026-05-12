@@ -19,16 +19,16 @@ def single_turn_attack(*, proposer=None):
     if proposer is None:
         return techniques.SingleTurnProbe(
             name="single_turn",
-            evaluate=ops.Evaluate(evaluator=evaluators.Contains(text="MESMER_ACCEPTED")),
+            evaluate=ops.Evaluate(evaluators=[evaluators.Contains(text="MESMER_ACCEPTED")]),
         )
     return techniques.FrontierSearch(
         name="frontier_trace",
         iterations=1,
         branching=2,
         width=1,
-        expand=ops.Propose(proposer),
-        evaluate=ops.Evaluate(evaluator=evaluators.Contains(text="MESMER_ACCEPTED")),
-        stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
+        expand=ops.Propose(proposer=proposer),
+        evaluate=ops.Evaluate(evaluators=[evaluators.Contains(text="MESMER_ACCEPTED")]),
+        stop=ops.StopWhen(condition=conditions.ScoreAtLeast(score=1)),
     )
 
 

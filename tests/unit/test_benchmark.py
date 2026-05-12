@@ -20,7 +20,7 @@ async def test_benchmark_expands_repetitions_and_metrics() -> None:
         attacks=[
             techniques.SingleTurnProbe(
                 name="single_turn",
-                evaluate=ops.Evaluate(evaluator=evaluators.Contains(text="MESMER_ACCEPTED")),
+                evaluate=ops.Evaluate(evaluators=[evaluators.Contains(text="MESMER_ACCEPTED")]),
             )
         ],
         targets=[PythonCallableTarget(fn=lambda messages, context: "MESMER_ACCEPTED")],

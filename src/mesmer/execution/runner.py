@@ -5,6 +5,7 @@ from pydantic import Field
 from mesmer.artifacts.messages import Message, assistant_message, system_message
 from mesmer.core.config import MesmerModel
 from mesmer.core.enums import LogFormat, RunOutcome, RunStatus, SpanName
+from mesmer.evidence import CapabilityProfile
 from mesmer.execution.budgets import BudgetTracker
 from mesmer.execution.context import AttackContext
 from mesmer.execution.run import Run
@@ -46,6 +47,7 @@ class Runner(MesmerModel):
     verbose: bool = False
     log_format: LogFormat = LogFormat.RICH
     max_log_text_chars: int | None = None
+    include_target_system_prompt_in_artifacts: bool = False
     results: list[RunResult] = Field(default_factory=list)
 
     async def run(self, run: Run) -> RunResult:
@@ -78,6 +80,7 @@ class Runner(MesmerModel):
                             budget_tracker=budget_tracker,
                             recorder=run.recorder,
                             logger=logger,
+                            capability_profile=CapabilityProfile.from_target(run.target),
                         )
                         state = await run.attack.execute(objective, context)
                         state.metadata.update(
@@ -102,7 +105,11 @@ class Runner(MesmerModel):
                             attack_name=run.attack.name,
                             target_name=run.target.name,
                             target_model=getattr(run.target, "model", None),
-                            target_system_prompt=getattr(run.target, "system_prompt", None),
+                            target_system_prompt=(
+                                getattr(run.target, "system_prompt", None)
+                                if self.include_target_system_prompt_in_artifacts
+                                else None
+                            ),
                         )
                         states.append(state)
                 result = RunResult(run_id=run.id, status=RunStatus.SUCCEEDED, states=states)

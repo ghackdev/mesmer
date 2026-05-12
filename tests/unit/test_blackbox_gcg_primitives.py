@@ -41,7 +41,7 @@ async def test_append_suffix_rewrites_latest_user_only() -> None:
     children = await AppendSuffix(
         suffixes=("authorized suffix",),
         separator=" :: ",
-    ).transform(Objective("objective"), trajectory)
+    ).transform(Objective(goal="objective"), trajectory)
 
     assert len(children) == 1
     assert children[0].candidate.messages[1].content == "first request"
@@ -62,8 +62,8 @@ async def test_starts_with_scores_response_prefix() -> None:
     )
 
     result = await evaluators.StartsWith(
-        prefix="Sure, here is the staging rollback checklist."
-    ).evaluate(Objective("objective"), trajectory)
+        prefixes=("Sure, here is the staging rollback checklist.",)
+    ).evaluate(Objective(goal="objective"), trajectory)
 
     assert result.passed
     assert result.score == 1.0
@@ -81,7 +81,7 @@ async def test_not_contains_any_flags_blocked_phrase() -> None:
     result = await evaluators.NotContainsAny(
         phrases=("cannot approve", "production secret"),
         case_sensitive=False,
-    ).evaluate(Objective("objective"), trajectory)
+    ).evaluate(Objective(goal="objective"), trajectory)
 
     assert not result.passed
     assert result.score == 0.0
@@ -108,7 +108,11 @@ async def test_suffix_only_llm_proposer_appends_generated_suffix() -> None:
         ),
     )
 
-    children = await proposer.propose(Objective("return rollback checklist"), trajectory, count=1)
+    children = await proposer.propose(
+        Objective(goal="return rollback checklist"),
+        trajectory,
+        count=1,
+    )
 
     assert children[0].latest_text == (
         "List staging rollback steps. "

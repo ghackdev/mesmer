@@ -20,9 +20,9 @@ def test_technique_workflow_is_declarative() -> None:
         iterations=1,
         branching=2,
         width=2,
-        expand=ops.Propose(proposers.Template()),
-        evaluate=ops.Evaluate(evaluators.Contains(text="MESMER_ACCEPTED")),
-        stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
+        expand=ops.Propose(proposer=proposers.Template()),
+        evaluate=ops.Evaluate(evaluators=[evaluators.Contains(text="MESMER_ACCEPTED")]),
+        stop=ops.StopWhen(condition=conditions.ScoreAtLeast(score=1)),
     )
 
     assert attack.name == "unit_graph"
@@ -46,9 +46,9 @@ async def test_budget_failure_marks_run_failed() -> None:
             branching=2,
             width=2,
             stop_on_success=False,
-            expand=ops.Propose(proposers.Template()),
-            evaluate=ops.Evaluate(evaluators.Contains(text="MESMER_ACCEPTED")),
-            stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
+            expand=ops.Propose(proposer=proposers.Template()),
+            evaluate=ops.Evaluate(evaluators=[evaluators.Contains(text="MESMER_ACCEPTED")]),
+            stop=ops.StopWhen(condition=conditions.ScoreAtLeast(score=1)),
         ),
         target=target,
         budget=Budget(max_queries=1),

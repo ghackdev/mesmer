@@ -38,7 +38,7 @@ TARGET_SYSTEM_PROMPT = (
 def single_turn(name: str) -> techniques.Technique:
     return techniques.SingleTurnProbe(
         name=name,
-        evaluate=ops.Evaluate(evaluator=evaluators.Criteria()),
+        evaluate=ops.Evaluate(evaluators=[evaluators.Criteria()]),
     )
 
 
@@ -54,10 +54,10 @@ def iterative_templates(
         iterations=iterations,
         branching=branching,
         width=width,
-        expand=ops.Propose(proposers.Template()),
-        select=ops.Select(selectors.KeywordOverlapSelector()),
-        evaluate=ops.Evaluate(evaluator=evaluators.Criteria()),
-        stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
+        expand=ops.Propose(proposer=proposers.Template()),
+        select=ops.Select(selector=selectors.KeywordOverlapSelector()),
+        evaluate=ops.Evaluate(evaluators=[evaluators.Criteria()]),
+        stop=ops.StopWhen(condition=conditions.ScoreAtLeast(score=1)),
     )
 
 

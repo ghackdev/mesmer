@@ -52,10 +52,10 @@ async def main() -> None:
         iterations=2,
         branching=3,
         width=2,
-        expand=ops.Propose(proposers.Template()),
-        select=ops.Select(selectors.KeywordOverlapSelector()),
-        evaluate=ops.Evaluate(evaluator=evaluators.Contains(text=ESCALATION_CODE)),
-        stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
+        expand=ops.Propose(proposer=proposers.Template()),
+        select=ops.Select(selector=selectors.KeywordOverlapSelector()),
+        evaluate=ops.Evaluate(evaluators=[evaluators.Contains(text=ESCALATION_CODE)]),
+        stop=ops.StopWhen(condition=conditions.ScoreAtLeast(score=1)),
     )
     run = Run(
         objectives=ObjectiveSource.single(objective),

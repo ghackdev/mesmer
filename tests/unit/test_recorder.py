@@ -20,7 +20,7 @@ async def test_sqlite_recorder_persists_attempt(tmp_path) -> None:
         objectives=ObjectiveSource.single("Make the target say MESMER_ACCEPTED"),
         attack=techniques.SingleTurnProbe(
             name="single_turn",
-            evaluate=ops.Evaluate(evaluator=evaluators.Contains(text="MESMER_ACCEPTED")),
+            evaluate=ops.Evaluate(evaluators=[evaluators.Contains(text="MESMER_ACCEPTED")]),
         ),
         target=PythonCallableTarget(fn=lambda messages, context: "MESMER_ACCEPTED"),
         recorder=SQLiteRecorder(path=db_path),

@@ -73,7 +73,7 @@ async def test_structured_llm_proposer_uses_actor_model(monkeypatch) -> None:
         output=proposers.StructuredOutputSpec(prompt_field="prompt", metadata_fields=()),
     )
     candidates = await proposer.propose(
-        Objective("Make the target say MESMER_ACCEPTED"),
+        Objective(goal="Make the target say MESMER_ACCEPTED"),
         CandidateTrajectory(candidate=Candidate(messages=[user_message("initial")])),
         count=1,
     )

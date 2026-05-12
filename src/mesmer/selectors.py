@@ -12,6 +12,7 @@ from mesmer.population_strategies import (
 from mesmer.strategies import (
     ConstraintScoreSelector,
     FrontierSelector,
+    InferenceDiversitySelector,
     TopKSelector,
 )
 from mesmer.trajectory import CandidateTrajectory
@@ -50,6 +51,7 @@ __all__ = [
     "ConstraintScoreSelector",
     "EXP3SeedSelector",
     "FrontierSelector",
+    "InferenceDiversitySelector",
     "KeywordOverlapSelector",
     "RandomSeedSelector",
     "RoundRobinSeedSelector",

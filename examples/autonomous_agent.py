@@ -72,14 +72,14 @@ async def main() -> None:
             ),
         ),
         query=ops.QueryTarget(),
-        evaluate=ops.Evaluate(evaluator=evaluators.Contains(text=APPROVAL_CODE)),
-        stop=ops.StopWhen(condition=conditions.ScoreAtLeast(1)),
+        evaluate=ops.Evaluate(evaluators=[evaluators.Contains(text=APPROVAL_CODE)]),
+        stop=ops.StopWhen(condition=conditions.ScoreAtLeast(score=1)),
         feedback=ops.AddFeedback(
             feedback=feedback.TemplateFeedback(
-                "response={response}; score={score}; transcript={transcript}"
+                template="response={response}; score={score}; transcript={transcript}"
             ),
         ),
-        select=ops.Select(selectors.TopKSelector(k=1)),
+        select=ops.Select(selector=selectors.TopKSelector(k=1)),
     )
     run = Run(
         objectives=ObjectiveSource.single(

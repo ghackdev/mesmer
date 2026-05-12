@@ -97,7 +97,7 @@ program = runtime.Program(
             generation.Propose(generation.Template()),
             targeting.Query(),
             evaluation.Assess(evaluation.Contains(text="RELEASE_READY")),
-            stopping.StopWhen(stopping.ScoreAtLeast(1)),
+            stopping.StopWhen(condition=stopping.ScoreAtLeast(score=1)),
         ],
     ),
 )
@@ -564,10 +564,10 @@ evaluators, or transforms by themselves.
 | --- | --- | --- |
 | `prompts.PromptPattern` | data model | prompt sources, selectors, transforms |
 | `prompts.PromptLibrary` | data model | prompt selectors |
-| `prompts.ListSource`, `JsonSource`, `BuiltinSource` | sources | `prompts.Select`, `prompts.TemplateSeedSource` |
-| `prompts.All`, `Tag`, `Id`, `Random`, `WithoutReplacement`, `RoundRobin` | selectors | `prompts.Select`, `prompts.TemplateSeedSource` |
-| `prompts.Select` | component | attaches selected pattern context to trajectories |
-| `prompts.MarkUsed` | component | updates pattern usage ledger |
+| `prompts.ListSource`, `JsonSource`, `BuiltinSource` | sources | `ops.SelectPromptPatterns`, `prompts.TemplateSeedSource` |
+| `prompts.All`, `Tag`, `Id`, `Random`, `WithoutReplacement`, `RoundRobin` | selectors | `ops.SelectPromptPatterns`, `prompts.TemplateSeedSource` |
+| `ops.SelectPromptPatterns` | operator | attaches selected pattern context to trajectories |
+| `ops.MarkPromptPatternsTried` | operator | updates pattern usage ledger after target query |
 | `prompts.TemplateSeedSource` | seed source | `population.Initialize` |
 
 ### Transform And Variation Utilities
@@ -632,7 +632,7 @@ These are the places where the current pattern is hard to see.
 | `topology.Search` vs `topology.Iterate` | Same namespace, different abstraction layers | `Search` is a flow adapter; `Iterate` is a component. |
 | Program children vs loop children | `Program(a, b)` and `Iterate(children=[...])` both appear | The same tree uses two authoring idioms. |
 | Components vs strategies | Modules mix executable nodes and helper objects | Users must infer which objects go in the tree. |
-| Singular/plural constructors | Some wrappers accept `evaluator=`, some accept lists, containers accept children | Ownership of one-vs-many is inconsistent. |
+| Explicit constructor shape | Operators use explicit keyword fields and lists for one-or-many inputs | The tree is easier to type-check, but examples must stay consistent. |
 | Frontier selection | `selection.Select` and `feedback.Refine` both retain frontier items | The boundary between selecting and refining needs clearer language. |
 | Transform naming | `Apply` and `Expand` currently share behavior | Names imply different behavior that is not implemented yet. |
 | Dynamic state | Population and prompt usage write dynamic fields/metadata | Validation cannot see all runtime dependencies. |

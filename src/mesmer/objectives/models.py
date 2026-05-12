@@ -43,9 +43,6 @@ class Objective(MesmerModel):
     labels: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    def __init__(self, goal: str, **data: Any) -> None:
-        super().__init__(goal=goal, **data)
-
     @field_validator("initial_state", mode="before")
     @classmethod
     def _coerce_initial_state(cls, value: Any) -> InitialState:
@@ -55,4 +52,4 @@ class Objective(MesmerModel):
     def coerce(cls, value: str | Objective) -> Objective:
         if isinstance(value, Objective):
             return value
-        return Objective(value)
+        return Objective(goal=value)

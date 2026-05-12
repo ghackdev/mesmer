@@ -15,7 +15,6 @@ from mesmer.ops import (
     AssignReward,
     ContinueConversation,
     GenerateFromPopulation,
-    LoadPopulation,
     Propose,
     QueryTarget,
     SeedFromObjective,
@@ -46,6 +45,7 @@ class Technique(MesmerModel, ABC):
             "technique": self.__class__.__name__,
             "state": sorted(slice_type.__name__ for slice_type in self.state_schema()),
             "workflow": self.workflow_graph(),
+            "capabilities": sorted(self.workflow().required_capabilities()),
         }
 
     async def execute(self, objective: Objective, context: AttackContext) -> AttackState:
@@ -85,17 +85,18 @@ class FrontierSearch(Technique):
     max_parallel: int = Field(default=1, ge=1)
     stop_on_success: bool = True
     seed: Operator = Field(default_factory=SeedFromObjective)
+    pre_expand: list[Operator] = Field(default_factory=list)
     expand: Operator
     pre_query: list[Operator] = Field(default_factory=list)
     query: Operator = Field(default_factory=QueryTarget)
+    post_query: list[Operator] = Field(default_factory=list)
     evaluate: Operator
-    stop: Operator
     post_evaluate: list[Operator] = Field(default_factory=list)
+    stop: Operator
     select: Operator = Field(default_factory=Select)
     feedback: Operator | None = None
 
-    def __init__(self, **data: object) -> None:
-        super().__init__(**data)
+    def model_post_init(self, __context: Any) -> None:
         self._validate_search_shape()
 
     def _validate_search_shape(self) -> None:
@@ -110,22 +111,92 @@ class FrontierSearch(Technique):
     def workflow(self) -> Workflow:
         self._validate_search_shape()
         body: list[Operator] = [
+            *self.pre_expand,
             self.expand,
             *self.pre_query,
             self.query,
+            *self.post_query,
             self.evaluate,
-            self.stop,
             *self.post_evaluate,
+            self.stop,
         ]
         if self.feedback is not None:
             body.append(self.feedback)
         body.append(self.select)
         return Sequence(
-            self.seed,
-            Loop(
-                *body,
-                max_iterations=self.iterations,
-            ),
+            steps=[
+                self.seed,
+                Loop(
+                    body=body,
+                    max_iterations=self.iterations,
+                ),
+            ],
+        )
+
+    def _context(self, context: AttackContext) -> AttackContext:
+        return context.model_copy(
+            update={
+                "policy": BranchingPolicy(
+                    iterations=self.iterations,
+                    branching_factor=self.branching,
+                    width=self.width,
+                    max_parallel=self.max_parallel,
+                    stop_on_success=self.stop_on_success,
+                )
+            }
+        )
+
+
+class ElicitationSearch(Technique):
+    name: str = "elicitation_search"
+    iterations: int = Field(default=3, ge=1)
+    branching: int = Field(default=2, ge=1)
+    width: int = Field(default=2, ge=1)
+    max_parallel: int = Field(default=1, ge=1)
+    stop_on_success: bool = False
+    seed: Operator = Field(default_factory=SeedFromObjective)
+    pre_expand: list[Operator] = Field(default_factory=list)
+    expand: Operator
+    pre_query: list[Operator] = Field(default_factory=list)
+    query: Operator = Field(default_factory=QueryTarget)
+    post_query: list[Operator] = Field(default_factory=list)
+    extract: Operator
+    post_extract: list[Operator] = Field(default_factory=list)
+    evaluate: Operator | None = None
+    post_evaluate: list[Operator] = Field(default_factory=list)
+    synthesize: Operator
+    feedback: Operator | None = None
+    select: Operator | None = None
+    stop: Operator | None = None
+
+    def workflow(self) -> Workflow:
+        body: list[Operator] = [
+            *self.pre_expand,
+            self.expand,
+            *self.pre_query,
+            self.query,
+            *self.post_query,
+            self.extract,
+            *self.post_extract,
+        ]
+        if self.evaluate is not None:
+            body.append(self.evaluate)
+            body.extend(self.post_evaluate)
+        body.append(self.synthesize)
+        if self.stop is not None:
+            body.append(self.stop)
+        if self.feedback is not None:
+            body.append(self.feedback)
+        if self.select is not None:
+            body.append(self.select)
+        return Sequence(
+            steps=[
+                self.seed,
+                Loop(
+                    body=body,
+                    max_iterations=self.iterations,
+                ),
+            ],
         )
 
     def _context(self, context: AttackContext) -> AttackContext:
@@ -156,7 +227,7 @@ class Probe(Technique):
         steps: list[Operator] = [self.seed, *self.prepare, self.query, self.evaluate]
         if self.stop is not None:
             steps.append(self.stop)
-        return Sequence(*steps)
+        return Sequence(steps=steps)
 
     def _context(self, context: AttackContext) -> AttackContext:
         return context.model_copy(
@@ -182,7 +253,7 @@ class SingleTurnProbe(Technique):
         steps: list[Operator] = [SeedFromObjective(), self.query, self.evaluate]
         if self.stop is not None:
             steps.append(self.stop)
-        return Sequence(*steps)
+        return Sequence(steps=steps)
 
 
 class ProposedProbe(Technique):
@@ -195,12 +266,7 @@ class ProposedProbe(Technique):
     max_parallel: int = Field(default=1, ge=1)
     stop_on_success: bool = True
 
-    def __init__(self, proposer=None, *, expand: Propose | None = None, **data: object) -> None:
-        if proposer is not None and expand is None and "expand" not in data:
-            data["expand"] = Propose(proposer)
-        elif expand is not None and "expand" not in data:
-            data["expand"] = expand
-        super().__init__(**data)
+    def model_post_init(self, __context: Any) -> None:
         self._validate_probe_shape()
 
     def _validate_probe_shape(self) -> None:
@@ -216,7 +282,7 @@ class ProposedProbe(Technique):
         steps: list[Operator] = [self.seed, self.expand, self.query, self.evaluate]
         if self.stop is not None:
             steps.append(self.stop)
-        return Sequence(*steps)
+        return Sequence(steps=steps)
 
     def _context(self, context: AttackContext) -> AttackContext:
         return context.model_copy(
@@ -255,7 +321,7 @@ class BestOfNProbe(Technique):
         if self.stop is not None:
             steps.append(self.stop)
         steps.append(self.select)
-        return Sequence(*steps)
+        return Sequence(steps=steps)
 
     def _context(self, context: AttackContext) -> AttackContext:
         return context.model_copy(
@@ -299,11 +365,13 @@ class ConversationAgentProbe(Technique):
             body.append(self.feedback)
         body.append(self.select)
         return Sequence(
-            self.seed,
-            Loop(
-                *body,
-                max_iterations=self.turns,
-            ),
+            steps=[
+                self.seed,
+                Loop(
+                    body=body,
+                    max_iterations=self.turns,
+                ),
+            ],
         )
 
     def _context(self, context: AttackContext) -> AttackContext:
@@ -334,24 +402,21 @@ class PopulationFuzzing(Technique):
     reward: Operator = Field(default_factory=AssignReward)
     stop: Operator
 
-    def __init__(self, *, seeds=None, load: Operator | None = None, **data: object) -> None:
-        if seeds is not None and load is None and "load" not in data:
-            data["load"] = LoadPopulation(source=seeds)
-        elif load is not None and "load" not in data:
-            data["load"] = load
-        super().__init__(**data)
-
     def workflow(self) -> Workflow:
         return Sequence(
-            self.load,
-            Loop(
-                self.generate,
-                self.query,
-                self.evaluate,
-                self.reward,
-                self.stop,
-                max_iterations=self.iterations,
-            ),
+            steps=[
+                self.load,
+                Loop(
+                    body=[
+                        self.generate,
+                        self.query,
+                        self.evaluate,
+                        self.reward,
+                        self.stop,
+                    ],
+                    max_iterations=self.iterations,
+                ),
+            ],
         )
 
     def _context(self, context: AttackContext) -> AttackContext:
@@ -371,6 +436,7 @@ class PopulationFuzzing(Technique):
 __all__ = [
     "BestOfNProbe",
     "ConversationAgentProbe",
+    "ElicitationSearch",
     "FrontierSearch",
     "PopulationFuzzing",
     "Probe",

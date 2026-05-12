@@ -5,6 +5,7 @@ from importlib.metadata import PackageNotFoundError, version
 from mesmer import (
     conditions,
     evaluators,
+    evidence,
     feedback,
     mutators,
     ops,
@@ -43,6 +44,7 @@ from mesmer.core.enums import (
 )
 from mesmer.core.registry import register_judge, register_target
 from mesmer.datasets import DatasetColumnMap, RemoteDatasetSource
+from mesmer.evidence import CapabilityProfile, EvidenceRecord
 from mesmer.execution.budgets import Budget
 from mesmer.execution.run import Run
 from mesmer.execution.runner import Runner
@@ -60,7 +62,13 @@ from mesmer.targets.http_json import HTTPJsonTarget
 from mesmer.targets.http_sse import HTTPSseTarget
 from mesmer.targets.litellm import LiteLLMTarget
 from mesmer.targets.websocket import WebSocketTarget
-from mesmer.techniques import BestOfNProbe, ConversationAgentProbe, Probe, ProposedProbe
+from mesmer.techniques import (
+    BestOfNProbe,
+    ConversationAgentProbe,
+    ElicitationSearch,
+    Probe,
+    ProposedProbe,
+)
 
 try:
     __version__ = version("mesmer-ai")
@@ -77,16 +85,19 @@ __all__ = [
     "Budget",
     "BudgetCurve",
     "Capability",
+    "CapabilityProfile",
     "Contains",
     "ContainsCriterion",
     "ConversationAgentProbe",
     "CriteriaJudge",
     "DatasetColumnMap",
     "DatasetFormat",
+    "ElicitationSearch",
     "EvaluationField",
     "EvaluatorFailurePolicy",
     "EvaluatorFailureReason",
     "EvidenceMatrix",
+    "EvidenceRecord",
     "HTTPJsonTarget",
     "HTTPSseTarget",
     "InitialState",
@@ -117,6 +128,7 @@ __all__ = [
     "assistant_message",
     "conditions",
     "evaluators",
+    "evidence",
     "feedback",
     "mutators",
     "ops",

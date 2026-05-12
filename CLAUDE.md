@@ -13,6 +13,8 @@
 - Treat user-orchestrated building blocks as operators; provider clients, selectors, parsers, targets, judges, actors, and sources are strategies/services used by operators.
 - Operators receive typed runtime state and return patches. Avoid hidden orchestration and uncontrolled mutation.
 - Operators declare the state slices they read and write for validation and documentation. They should also declare external capabilities such as target calls when relevant.
+- Do not use free-form `metadata: dict[str, Any]` as the source of truth for runtime behavior, scoring, pruning, verification, stopping, provenance, agreement, or replay-critical state. Metadata is for observability, artifacts, debugging, and backwards-compatible mirrors of typed data only. If an operator needs to read or write a value that changes control flow or correctness, add a typed field, typed nested model, state slice, evidence record field, enum, or strategy config instead.
+- Avoid metadata-key protocols between operators. A downstream operator should not depend on `metadata["some_key"]` being present unless that value is also represented in a typed model and the metadata entry is only a serialized mirror. When bridging untyped LLM structured-output fields into runtime behavior, normalize them once at the boundary into a typed object before other operators consume them.
 - Built-in techniques infer their state schema from operators. Users should inspect `state_schema()`, `workflow_graph()`, and `describe()` instead of writing redundant state specs.
 - Technique examples should make algorithm state visible when it is part of understanding the paper, either through named state slices or clearly documented metadata.
 - Keep framework control state internal. Do not force techniques to declare fields like `stopped` or `stop_reason`.
@@ -46,9 +48,18 @@
 - `techniques.Probe` is the canonical one-shot technique. Use `prepare=[...]` for a single proposal, deterministic transform, or other pre-query setup. `SingleTurnProbe` and `ProposedProbe` remain specialized convenience techniques, not search primitives.
 - `techniques.BestOfNProbe` represents bounded one-step sampling and selection. Use it for BoN-style breadth without pretending the run is iterative frontier search.
 - `techniques.ConversationAgentProbe` represents explicit multi-turn target-visible agent loops. It should keep conversation continuation visible through operators such as `ops.ContinueConversation`.
-- `techniques.FrontierSearch` supports `pre_query` and `post_evaluate` hook operators. Use these for TAP/PAIR-style constraint gates, filters, and feedback rather than hiding those mechanics inside proposers or evaluators.
+- `techniques.FrontierSearch` supports `pre_expand`, `pre_query`, `post_query`, and `post_evaluate` hook operators. Use `pre_expand` when selected prompt-pattern context must guide a proposer, `post_query` for accounting that should happen only after candidates reach the target, and the other hooks for TAP/PAIR-style gates, filters, and feedback rather than hiding those mechanics inside proposers or evaluators.
 - Candidate generation should use `ops.Propose` plus a `proposers.Proposer`, or a clearly named population operator. Legacy expander/pruner-style families overlap with proposers/selectors and should not be restored for new paper primitives by default.
 - Prompt patterns live under `prompts` and are reusable prompt tactics, templates, proposer hints, and transform suggestions. They are not executable transforms by themselves.
+- Prompt-pattern exploration inside techniques uses `ops.SelectPromptPatterns` to attach selected pattern context, `ops.MarkPromptPatternsTried` to mark patterns after target query, and `ops.MarkPromptPatternOutcomes` to credit successful patterns after evaluation. The per-run usage state lives in `state.PromptPatternLedger`.
+- Elicitation and hypothesis accumulation use generic inference primitives:
+  `state.InferenceLedger`, `ops.ExtractClaims`, `ops.SynthesizeHypothesis`,
+  actor-backed extractor/synthesizer strategies, and
+  `feedback.InferenceFeedback`. Keep domain-specific behavior in prompts and
+  schemas rather than adding system-prompt-specific primitives. Use soft
+  triage: unusual probes are allowed, but extracted claims must separate
+  content, behavior, echo, and artifact tracks so prompt artifacts do not
+  contaminate reconstructed hypotheses.
 - High-level paper guidance such as "competing objectives" should also use `prompts.PromptPattern` with `description`, `proposer_hint`, tags, and source metadata, but no concrete `templates` unless it should materialize directly. Selected prompt-pattern context is proposer inspiration for runtime generation.
 - Mismatched generalization should be represented as high-level prompt guidance, while concrete encodings such as Base64 stay as deterministic transforms or suggested transforms.
 - `proposers.StructuredLLMProposer` default proposal prompts should include selected prompt-pattern context so prompt-pattern selection can guide runtime pattern generation without every example redefining the proposer prompt.

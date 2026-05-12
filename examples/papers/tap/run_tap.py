@@ -54,7 +54,7 @@ async def main() -> None:
         branching=args.branching_factor,
         width=args.width,
         expand=ops.Propose(
-            proposers.StructuredLLMProposer(
+            proposer=proposers.StructuredLLMProposer(
                 actor=attacker,
                 system_prompt_template=(
                     "You are running an authorized TAP-style evaluation. Generate one "
@@ -69,9 +69,9 @@ async def main() -> None:
                 message_mode=ProposalMessageMode.REPLACE,
             )
         ),
-        select=ops.Select(selectors.TopKSelector()),
-        evaluate=ops.Evaluate(evaluator=evaluators.Contains(text=SUCCESS_TOKEN)),
-        stop=ops.StopWhen(conditions.ScoreAtLeast(args.success_score)),
+        select=ops.Select(selector=selectors.TopKSelector()),
+        evaluate=ops.Evaluate(evaluators=[evaluators.Contains(text=SUCCESS_TOKEN)]),
+        stop=ops.StopWhen(condition=conditions.ScoreAtLeast(score=args.success_score)),
     )
     run = Run(
         objectives=ObjectiveSource.single(

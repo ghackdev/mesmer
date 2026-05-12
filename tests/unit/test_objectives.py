@@ -19,6 +19,6 @@ def test_initial_state_from_prompt() -> None:
 
 
 def test_source_list_normalizes_strings() -> None:
-    objectives = list(ObjectiveSource.list(["a", Objective("b")]))
+    objectives = list(ObjectiveSource.list(["a", Objective(goal="b")]))
 
     assert [objective.goal for objective in objectives] == ["a", "b"]

@@ -34,8 +34,8 @@ async def main() -> None:
     )
     flow = techniques.SingleTurnProbe(
         name="release_token_single_turn",
-        evaluate=ops.Evaluate(evaluator=evaluators.Contains(text=RELEASE_TOKEN)),
-        stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
+        evaluate=ops.Evaluate(evaluators=[evaluators.Contains(text=RELEASE_TOKEN)]),
+        stop=ops.StopWhen(condition=conditions.ScoreAtLeast(score=1)),
     )
     run = Run(
         objectives=ObjectiveSource.single(objective),

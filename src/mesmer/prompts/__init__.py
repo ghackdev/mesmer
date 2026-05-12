@@ -297,6 +297,21 @@ class PromptUsageLedger(MesmerModel):
         record = self.records.get(pattern_id)
         return record.uses if record else 0
 
+    def mark_success(
+        self,
+        pattern_id: str,
+        trajectory_id: str,
+        iteration: int,
+    ) -> None:
+        record = self.records.setdefault(
+            pattern_id,
+            PromptPatternUsage(pattern_id=pattern_id),
+        )
+        record.successes += 1
+        record.last_iteration = iteration
+        if trajectory_id not in record.trajectory_ids:
+            record.trajectory_ids.append(trajectory_id)
+
 
 class TemplateSeedSource(SeedPoolSource):
     source: PromptPatternSource = Field(default_factory=BuiltinSource)

@@ -10,6 +10,7 @@ from pydantic import Field
 from mesmer.artifacts.messages import Message
 from mesmer.core.config import MesmerModel
 from mesmer.core.enums import MessageRole
+from mesmer.evidence import TransformKind, TransformProvenance
 from mesmer.execution.state import Candidate
 from mesmer.objectives.models import Objective
 from mesmer.trajectory import CandidateTrajectory
@@ -33,6 +34,8 @@ class TransformSpec(MesmerModel):
 
 class Transform(MesmerModel, ABC):
     name: str
+    kind: TransformKind = TransformKind.GENERIC
+    intent_preserving: bool | None = None
 
     @abstractmethod
     async def transform(
@@ -42,6 +45,14 @@ class Transform(MesmerModel, ABC):
     ) -> list[CandidateTrajectory]:
         raise NotImplementedError
 
+    def provenance(self, **params: Any) -> dict[str, Any]:
+        return TransformProvenance(
+            name=self.name,
+            kind=self.kind.value,
+            intent_preserving=self.intent_preserving,
+            params=params,
+        ).model_dump(mode="json")
+
 
 class Encode(Transform):
     codec: str = "base64"
@@ -50,6 +61,8 @@ class Encode(Transform):
     request_encoded_output: bool = False
     wrap_template: str | None = None
     name: str = "encode"
+    kind: TransformKind = TransformKind.ENCODING
+    intent_preserving: bool | None = True
 
     async def transform(
         self,
@@ -79,6 +92,7 @@ class Encode(Transform):
             "codec": self.codec,
             "scope": self.scope,
             "operator_chain": [_spec_payload(self.name, self._spec_params())],
+            "transform_provenance": self.provenance(**self._spec_params()),
             "transform_replacements": replacements,
         }
         return [_child_trajectory(trajectory, messages, metadata)]
@@ -113,6 +127,8 @@ class TemplateWrap(Transform):
     templates: tuple[str, ...]
     scope: str = LATEST_USER
     name: str = "template_wrap"
+    kind: TransformKind = TransformKind.TEMPLATE
+    intent_preserving: bool | None = None
 
     async def transform(
         self,
@@ -142,6 +158,10 @@ class TemplateWrap(Transform):
                         {"scope": self.scope, "template": template},
                     )
                 ],
+                "transform_provenance": self.provenance(
+                    scope=self.scope,
+                    template=template,
+                ),
             }
             variants.append(_child_trajectory(trajectory, messages, metadata))
         return variants
@@ -152,6 +172,8 @@ class AppendSuffix(Transform):
     separator: str = " "
     scope: str = LATEST_USER
     name: str = "append_suffix"
+    kind: TransformKind = TransformKind.SUFFIX
+    intent_preserving: bool | None = False
 
     async def transform(
         self,
@@ -182,6 +204,11 @@ class AppendSuffix(Transform):
                         },
                     )
                 ],
+                "transform_provenance": self.provenance(
+                    scope=self.scope,
+                    suffix=suffix,
+                    separator=self.separator,
+                ),
             }
             variants.append(_child_trajectory(trajectory, messages, metadata))
         return variants
@@ -192,6 +219,8 @@ class PayloadSplit(Transform):
     scope: str = LATEST_USER
     variable_prefix: str = "part"
     name: str = "payload_split"
+    kind: TransformKind = TransformKind.PAYLOAD_SPLIT
+    intent_preserving: bool | None = True
 
     async def transform(
         self,
@@ -230,6 +259,11 @@ class PayloadSplit(Transform):
                     },
                 )
             ],
+            "transform_provenance": self.provenance(
+                scope=self.scope,
+                pieces=self.pieces,
+                variable_prefix=self.variable_prefix,
+            ),
         }
         return [_child_trajectory(trajectory, messages, metadata)]
 
@@ -238,6 +272,8 @@ class CharacterRewrite(Transform):
     strategy: str
     scope: str = LATEST_USER
     name: str = "character_rewrite"
+    kind: TransformKind = TransformKind.CHARACTER_REWRITE
+    intent_preserving: bool | None = None
 
     async def transform(
         self,
@@ -260,6 +296,10 @@ class CharacterRewrite(Transform):
                     {"strategy": self.strategy, "scope": self.scope},
                 )
             ],
+            "transform_provenance": self.provenance(
+                strategy=self.strategy,
+                scope=self.scope,
+            ),
         }
         return [_child_trajectory(trajectory, messages, metadata)]
 
@@ -287,14 +327,172 @@ class CharacterRewrite(Transform):
         raise ValueError(f"Unsupported character rewrite strategy: {self.strategy}")
 
 
+class StyleTransfer(Transform):
+    style: str
+    template: str = (
+        "Rewrite the following request in {style} style while preserving intent:\n{prompt}"
+    )
+    scope: str = LATEST_USER
+    name: str = "style_transfer"
+    kind: TransformKind = TransformKind.STYLE
+    intent_preserving: bool | None = True
+
+    async def transform(
+        self,
+        objective: Objective,
+        trajectory: CandidateTrajectory,
+    ) -> list[CandidateTrajectory]:
+        indices = _message_indices(trajectory.candidate.messages, self.scope)
+        if not indices:
+            return []
+        messages = [message.model_copy(deep=True) for message in trajectory.candidate.messages]
+        for index in indices:
+            messages[index].content = self.template.format(
+                style=self.style,
+                prompt=messages[index].content,
+                objective=objective.goal,
+                goal=objective.goal,
+            )
+        metadata = {
+            "transform": self.name,
+            "style": self.style,
+            "scope": self.scope,
+            "operator_chain": [
+                _spec_payload(
+                    self.name,
+                    {"style": self.style, "scope": self.scope},
+                )
+            ],
+            "transform_provenance": self.provenance(style=self.style, scope=self.scope),
+        }
+        return [_child_trajectory(trajectory, messages, metadata)]
+
+
+class LexicalAnchorInject(Transform):
+    anchors: tuple[str, ...]
+    scope: str = LATEST_USER
+    separator: str = " "
+    name: str = "lexical_anchor_inject"
+    kind: TransformKind = TransformKind.LEXICAL_ANCHOR
+    intent_preserving: bool | None = False
+
+    async def transform(
+        self,
+        objective: Objective,
+        trajectory: CandidateTrajectory,
+    ) -> list[CandidateTrajectory]:
+        indices = _message_indices(trajectory.candidate.messages, self.scope)
+        if not indices:
+            return []
+        messages = [message.model_copy(deep=True) for message in trajectory.candidate.messages]
+        anchor_text = self.separator.join(self.anchors)
+        for index in indices:
+            messages[index].content = f"{messages[index].content}{self.separator}{anchor_text}"
+        metadata = {
+            "transform": self.name,
+            "anchors": list(self.anchors),
+            "scope": self.scope,
+            "operator_chain": [
+                _spec_payload(
+                    self.name,
+                    {"anchors": list(self.anchors), "scope": self.scope},
+                )
+            ],
+            "transform_provenance": self.provenance(
+                anchors=list(self.anchors),
+                scope=self.scope,
+            ),
+        }
+        return [_child_trajectory(trajectory, messages, metadata)]
+
+
+class DemonstrationPack(Transform):
+    demonstrations: tuple[str, ...]
+    scope: str = LATEST_USER
+    separator: str = "\n\n"
+    name: str = "demonstration_pack"
+    kind: TransformKind = TransformKind.DEMONSTRATION_PACK
+    intent_preserving: bool | None = False
+
+    async def transform(
+        self,
+        objective: Objective,
+        trajectory: CandidateTrajectory,
+    ) -> list[CandidateTrajectory]:
+        indices = _message_indices(trajectory.candidate.messages, self.scope)
+        if not indices:
+            return []
+        messages = [message.model_copy(deep=True) for message in trajectory.candidate.messages]
+        prefix = self.separator.join(self.demonstrations)
+        for index in indices:
+            messages[index].content = f"{prefix}{self.separator}{messages[index].content}"
+        metadata = {
+            "transform": self.name,
+            "demonstration_count": len(self.demonstrations),
+            "scope": self.scope,
+            "operator_chain": [
+                _spec_payload(
+                    self.name,
+                    {
+                        "demonstration_count": len(self.demonstrations),
+                        "scope": self.scope,
+                    },
+                )
+            ],
+            "transform_provenance": self.provenance(
+                demonstration_count=len(self.demonstrations),
+                scope=self.scope,
+            ),
+        }
+        return [_child_trajectory(trajectory, messages, metadata)]
+
+
+class AugmentText(Transform):
+    variants: tuple[str, ...]
+    scope: str = LATEST_USER
+    name: str = "augment_text"
+    kind: TransformKind = TransformKind.AUGMENTATION
+    intent_preserving: bool | None = None
+
+    async def transform(
+        self,
+        objective: Objective,
+        trajectory: CandidateTrajectory,
+    ) -> list[CandidateTrajectory]:
+        indices = _message_indices(trajectory.candidate.messages, self.scope)
+        if not indices:
+            return []
+        augmented: list[CandidateTrajectory] = []
+        for variant_index, variant in enumerate(self.variants):
+            messages = [message.model_copy(deep=True) for message in trajectory.candidate.messages]
+            for index in indices:
+                messages[index].content = variant.format(
+                    prompt=messages[index].content,
+                    objective=objective.goal,
+                    goal=objective.goal,
+                )
+            metadata = {
+                "transform": self.name,
+                "variant_index": variant_index,
+                "scope": self.scope,
+                "operator_chain": [
+                    _spec_payload(
+                        self.name,
+                        {"variant_index": variant_index, "scope": self.scope},
+                    )
+                ],
+                "transform_provenance": self.provenance(
+                    variant_index=variant_index,
+                    scope=self.scope,
+                ),
+            }
+            augmented.append(_child_trajectory(trajectory, messages, metadata))
+        return augmented
+
+
 class Compose(Transform):
     transforms: tuple[Transform, ...]
     name: str = "compose"
-
-    def __init__(self, *transforms: Transform, **data: object) -> None:
-        if transforms and "transforms" not in data:
-            data["transforms"] = transforms
-        super().__init__(**data)
 
     async def transform(
         self,
@@ -415,6 +613,14 @@ def _transform_from_spec(spec: TransformSpec) -> Transform:
         return PayloadSplit(**spec.params)
     if spec.name == "character_rewrite":
         return CharacterRewrite(**spec.params)
+    if spec.name == "style_transfer":
+        return StyleTransfer(**spec.params)
+    if spec.name == "lexical_anchor_inject":
+        return LexicalAnchorInject(**spec.params)
+    if spec.name == "demonstration_pack":
+        return DemonstrationPack(**spec.params)
+    if spec.name == "augment_text":
+        return AugmentText(**spec.params)
     raise ValueError(f"Unsupported transform spec: {spec.name}")
 
 
@@ -450,12 +656,18 @@ __all__ = [
     "NEW_USER_SINCE_PARENT",
     "SUPPORTED_SCOPES",
     "AppendSuffix",
+    "AugmentText",
     "CharacterRewrite",
     "Compose",
+    "DemonstrationPack",
     "Encode",
     "FromPromptPattern",
+    "LexicalAnchorInject",
     "PayloadSplit",
+    "StyleTransfer",
     "TemplateWrap",
     "Transform",
+    "TransformKind",
+    "TransformProvenance",
     "TransformSpec",
 ]

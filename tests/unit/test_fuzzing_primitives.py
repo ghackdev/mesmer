@@ -102,7 +102,7 @@ async def test_sequence_classifier_evaluator_scores_target_response() -> None:
         last_response=TargetResponse(text="ALLOW"),
     )
 
-    result = await evaluator.evaluate(Objective("goal"), trajectory)
+    result = await evaluator.evaluate(Objective(goal="goal"), trajectory)
 
     assert result.score == 1.0
     assert result.passed is True
@@ -115,7 +115,9 @@ async def test_population_fuzzing_records_success_and_seed_reward() -> None:
         iterations=1,
         branching=1,
         width=1,
-        seeds=sources.ListSeedPoolSource(seeds=("Please handle [INSERT PROMPT HERE]",)),
+        load=ops.LoadPopulation(
+            source=sources.ListSeedPoolSource(seeds=("Please handle [INSERT PROMPT HERE]",)),
+        ),
         generate=ops.GenerateFromPopulation(
             selector=selectors.RoundRobinSeedSelector(),
             mutator=mutators.LexicalSubstitutionMutator(
@@ -124,10 +126,12 @@ async def test_population_fuzzing_records_success_and_seed_reward() -> None:
             ),
         ),
         evaluate=ops.Evaluate(
-            evaluators.SequenceClassifierEvaluator(classifier=FakeSequenceClassifier())
+            evaluators=[
+                evaluators.SequenceClassifierEvaluator(classifier=FakeSequenceClassifier())
+            ]
         ),
         reward=ops.AssignReward(success_score=1),
-        stop=ops.StopWhen(conditions.ScoreAtLeast(1)),
+        stop=ops.StopWhen(condition=conditions.ScoreAtLeast(score=1)),
     )
     run = Run(
         objectives=ObjectiveSource.single("make marker"),

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import Field
 
 from mesmer.core.errors import ConfigError
@@ -21,6 +23,7 @@ from mesmer.trajectory import CandidateTrajectory, EvaluationResult, RatingScale
 class Contains(ResponseEvaluator):
     text: str
     case_sensitive: bool = True
+    allow_prompt_echo: bool = True
     scale: RatingScale = Field(default_factory=lambda: RatingScale(min=0, max=1))
     name: str = "contains"
 
@@ -30,16 +33,44 @@ class Contains(ResponseEvaluator):
         trajectory: CandidateTrajectory,
     ) -> EvaluationResult:
         response = trajectory.last_response.text if trajectory.last_response else ""
-        haystack = response if self.case_sensitive else response.lower()
-        needle = self.text if self.case_sensitive else self.text.lower()
-        passed = needle in haystack
+        prompt = "\n".join(message.content for message in trajectory.candidate.messages)
+        if self.case_sensitive:
+            needle = self.text
+            response_haystack = response
+            prompt_haystack = prompt
+        else:
+            needle = self.text.lower()
+            response_haystack = response.lower()
+            prompt_haystack = prompt.lower()
+
+        response_contains_text = needle in response_haystack
+        prompt_contains_text = needle in prompt_haystack
+        passed = response_contains_text and (
+            self.allow_prompt_echo or not prompt_contains_text
+        )
         score = 1.0 if passed else 0.0
+        if self.allow_prompt_echo:
+            reason = "Expected text found." if passed else "Expected text not found."
+        else:
+            reason = (
+                "Expected text found in response without prompt echo."
+                if passed
+                else (
+                    "Expected text not found in response, or candidate prompt already "
+                    "contained it."
+                )
+            )
         return EvaluationResult(
             name=self.name,
             score=score,
             normalized_score=self.scale.normalize(score),
             passed=passed,
-            reason="Expected text found." if passed else "Expected text not found.",
+            reason=reason,
+            metadata={
+                "allow_prompt_echo": self.allow_prompt_echo,
+                "prompt_contains_text": prompt_contains_text,
+                "response_contains_text": response_contains_text,
+            },
         )
 
 
@@ -50,10 +81,7 @@ class StartsWith(ResponseEvaluator):
     scale: RatingScale = Field(default_factory=lambda: RatingScale(min=0, max=1))
     name: str = "starts_with"
 
-    def __init__(self, prefix: str | None = None, **data: object) -> None:
-        if prefix is not None and "prefixes" not in data:
-            data["prefixes"] = (prefix,)
-        super().__init__(**data)
+    def model_post_init(self, __context: Any) -> None:
         self._validate_prefixes()
 
     def _validate_prefixes(self) -> None:
@@ -159,18 +187,7 @@ class JudgePanel(ResponseEvaluator):
     evaluators: list[ResponseEvaluator] = Field(default_factory=list)
     name: str = "judge_panel"
 
-    def __init__(
-        self,
-        evaluator: ResponseEvaluator | None = None,
-        *,
-        evaluators: list[ResponseEvaluator] | None = None,
-        **data: object,
-    ) -> None:
-        if evaluator is not None and "evaluators" not in data:
-            data["evaluators"] = [evaluator]
-        if evaluators is not None and "evaluators" not in data:
-            data["evaluators"] = evaluators
-        super().__init__(**data)
+    def model_post_init(self, __context: Any) -> None:
         self._validate_evaluators()
 
     def _validate_evaluators(self) -> None:

@@ -25,6 +25,9 @@ class Operator(MesmerModel, ABC):
     def required_slices(self) -> set[type[StateSlice]]:
         return set(self.reads | self.writes)
 
+    def required_capabilities(self) -> set[str]:
+        return set(self.capabilities)
+
 
 class Workflow(MesmerModel, ABC):
     name: str
@@ -43,6 +46,12 @@ class Workflow(MesmerModel, ABC):
             slices.update(operator.required_slices())
         return slices
 
+    def required_capabilities(self) -> set[str]:
+        capabilities: set[str] = set()
+        for operator in self.operators():
+            capabilities.update(operator.required_capabilities())
+        return capabilities
+
     def validate(self, available: set[type[StateSlice]]) -> None:
         for operator in self.operators():
             missing = operator.reads - available
@@ -57,11 +66,6 @@ class Workflow(MesmerModel, ABC):
 class Sequence(Workflow):
     steps: list[Operator | Workflow] = Field(default_factory=list)
     name: str = "sequence"
-
-    def __init__(self, *steps: Operator | Workflow, **data: object) -> None:
-        if steps and "steps" not in data:
-            data["steps"] = list(steps)
-        super().__init__(**data)
 
     def operators(self) -> list[Operator]:
         values: list[Operator] = []
@@ -86,18 +90,6 @@ class Loop(Workflow):
     body: list[Operator | Workflow] = Field(default_factory=list)
     max_iterations: int = Field(default=1, ge=1)
     name: str = "loop"
-
-    def __init__(
-        self,
-        *body: Operator | Workflow,
-        max_iterations: int = 1,
-        **data: object,
-    ) -> None:
-        if body and "body" not in data:
-            data["body"] = list(body)
-        if "max_iterations" not in data:
-            data["max_iterations"] = max_iterations
-        super().__init__(**data)
 
     def operators(self) -> list[Operator]:
         values: list[Operator] = []
@@ -132,6 +124,12 @@ async def execute_operator(operator: Operator, state: State, context: AttackCont
         missing_names = ", ".join(sorted(slice_type.__name__ for slice_type in missing))
         raise ConfigError(
             f"Operator '{operator.name}' reads missing state slices: {missing_names}."
+        )
+    missing_capabilities = context.capability_profile.missing(operator.required_capabilities())
+    if missing_capabilities:
+        missing_names = ", ".join(sorted(missing_capabilities))
+        raise ConfigError(
+            f"Operator '{operator.name}' requires unavailable capabilities: {missing_names}."
         )
     before = state.snapshot()
     start = time.perf_counter()

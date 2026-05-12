@@ -25,6 +25,12 @@ class Attempt(MesmerModel):
     response: TargetResponse
     judgements: list[Judgement]
     turn: int = 1
+    trajectory_id: str | None = None
+    depth: int = 0
+    target_error: bool = False
+    error_type: str | None = None
+    recoverable: bool = False
+    trace: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @property

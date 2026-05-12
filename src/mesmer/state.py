@@ -7,10 +7,26 @@ from pydantic import Field
 from mesmer.core.config import MesmerModel
 from mesmer.core.constants import SUCCESS_TERMINATION_REASON
 from mesmer.core.enums import JudgementStatus
+from mesmer.evidence import (
+    BudgetRecord,
+    ClaimRecord,
+    ClassifierDecision,
+    ConversationTrace,
+    CumulativeRiskRecord,
+    EvidenceRecord,
+    HypothesisRecord,
+    JudgeAgreement,
+    JudgeRun,
+    MemoryRecord,
+    SerializedConversation,
+    SystemSurface,
+    TransferRecord,
+)
 from mesmer.execution.state import AttackState, Attempt
 from mesmer.judging.base import Judgement
 from mesmer.objectives.models import Objective as ObjectiveModel
 from mesmer.population_strategies import PromptSeedPool
+from mesmer.prompts import PromptUsageLedger
 from mesmer.targets.base import TargetResponse
 from mesmer.trajectory import CandidateTrajectory, ConstraintResult, EvaluationResult
 
@@ -56,6 +72,50 @@ class PopulationPool(StateSlice):
 
 class RewardLedger(StateSlice):
     rewards: dict[str, float] = Field(default_factory=dict)
+
+
+class PromptPatternLedger(StateSlice):
+    ledger: PromptUsageLedger = Field(default_factory=PromptUsageLedger)
+
+
+class InferenceLedger(StateSlice):
+    claims: list[ClaimRecord] = Field(default_factory=list)
+    hypotheses: list[HypothesisRecord] = Field(default_factory=list)
+
+
+class EvidenceLedger(StateSlice):
+    records: list[EvidenceRecord] = Field(default_factory=list)
+
+
+class BudgetLedger(StateSlice):
+    records: list[BudgetRecord] = Field(default_factory=list)
+
+
+class JudgeLedger(StateSlice):
+    runs: list[JudgeRun] = Field(default_factory=list)
+    agreements: list[JudgeAgreement] = Field(default_factory=list)
+
+
+class ConversationTraceSlice(StateSlice):
+    trace: ConversationTrace = Field(default_factory=ConversationTrace)
+
+
+class CumulativeRiskLedger(StateSlice):
+    records: list[CumulativeRiskRecord] = Field(default_factory=list)
+
+
+class MemoryBank(StateSlice):
+    records: list[MemoryRecord] = Field(default_factory=list)
+
+
+class TransferLedger(StateSlice):
+    records: list[TransferRecord] = Field(default_factory=list)
+
+
+class SystemSurfaceState(StateSlice):
+    surface: SystemSurface = Field(default_factory=SystemSurface)
+    serialized: list[SerializedConversation] = Field(default_factory=list)
+    classifier_decisions: list[ClassifierDecision] = Field(default_factory=list)
 
 
 class StopSignal(StateSlice):
@@ -147,6 +207,9 @@ class State(MesmerModel):
             TargetResponses: TargetResponses(),
             Evaluations: Evaluations(),
             Feedback: Feedback(),
+            EvidenceLedger: EvidenceLedger(),
+            BudgetLedger: BudgetLedger(),
+            JudgeLedger: JudgeLedger(),
             StopSignal: StopSignal(),
             Iteration: Iteration(),
             Metadata: Metadata(),
@@ -227,11 +290,66 @@ class State(MesmerModel):
         self.attack_state.metadata["target_calls"] = self.target_calls
         if self.best is not None:
             self.attack_state.metadata["best_trajectory"] = _trajectory_summary(self.best)
+        if self.has(EvidenceLedger):
+            self.attack_state.metadata["evidence_records"] = [
+                record.model_dump(mode="json")
+                for record in self.get(EvidenceLedger).records
+            ]
+        if self.has(BudgetLedger):
+            self.attack_state.metadata["budget_records"] = [
+                record.model_dump(mode="json")
+                for record in self.get(BudgetLedger).records
+            ]
+        if self.has(JudgeLedger):
+            judge_ledger = self.get(JudgeLedger)
+            self.attack_state.metadata["judge_runs"] = [
+                run.model_dump(mode="json") for run in judge_ledger.runs
+            ]
+            self.attack_state.metadata["judge_agreements"] = [
+                agreement.model_dump(mode="json")
+                for agreement in judge_ledger.agreements
+            ]
+        if self.has(PromptPatternLedger):
+            self.attack_state.metadata["prompt_pattern_usage"] = self.get(
+                PromptPatternLedger
+            ).ledger.model_dump(mode="json")
+        if self.has(InferenceLedger):
+            inference = self.get(InferenceLedger)
+            self.attack_state.metadata["inference_ledger"] = {
+                "claims": [
+                    claim.model_dump(mode="json") for claim in inference.claims
+                ],
+                "hypotheses": [
+                    hypothesis.model_dump(mode="json")
+                    for hypothesis in inference.hypotheses
+                ],
+            }
+        if self.has(ConversationTraceSlice):
+            self.attack_state.metadata["conversation_trace"] = self.get(
+                ConversationTraceSlice
+            ).trace.model_dump(mode="json")
+        if self.has(CumulativeRiskLedger):
+            self.attack_state.metadata["cumulative_risk_records"] = [
+                record.model_dump(mode="json")
+                for record in self.get(CumulativeRiskLedger).records
+            ]
+        if self.has(SystemSurfaceState):
+            surface_state = self.get(SystemSurfaceState)
+            self.attack_state.metadata["system_surface"] = surface_state.surface.model_dump(
+                mode="json"
+            )
+            self.attack_state.metadata["serialized_conversations"] = [
+                item.model_dump(mode="json") for item in surface_state.serialized
+            ]
+            self.attack_state.metadata["classifier_decisions"] = [
+                item.model_dump(mode="json")
+                for item in surface_state.classifier_decisions
+            ]
         return self.attack_state
 
     def _mark_attempt_success(self, trajectory_id: str) -> None:
         for attempt in reversed(self.attack_state.attempts):
-            if attempt.metadata.get("trajectory_id") != trajectory_id:
+            if attempt.trajectory_id != trajectory_id:
                 continue
             if attempt.judgements:
                 attempt.judgements[0].status = JudgementStatus.PASS
