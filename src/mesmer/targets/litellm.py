@@ -41,6 +41,7 @@ class LiteLLMTarget(Target):
         return TargetResponse(
             text=text,
             raw=response.model_dump() if hasattr(response, "model_dump") else response,
+            finish_reason=finish_reason,
             metadata={"finish_reason": finish_reason},
             latency_ms=(time.perf_counter() - start) * 1000,
             input_tokens=getattr(usage, "prompt_tokens", None),

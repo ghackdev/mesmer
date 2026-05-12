@@ -65,7 +65,9 @@ from mesmer.targets.websocket import WebSocketTarget
 from mesmer.techniques import (
     BestOfNProbe,
     ConversationAgentProbe,
+    DictionaryAttack,
     ElicitationSearch,
+    Output2Prompt,
     Probe,
     ProposedProbe,
 )
@@ -92,6 +94,7 @@ __all__ = [
     "CriteriaJudge",
     "DatasetColumnMap",
     "DatasetFormat",
+    "DictionaryAttack",
     "ElicitationSearch",
     "EvaluationField",
     "EvaluatorFailurePolicy",
@@ -110,6 +113,7 @@ __all__ = [
     "Message",
     "Objective",
     "ObjectiveSource",
+    "Output2Prompt",
     "Probe",
     "PromptLeakageJudge",
     "ProposalMessageMode",

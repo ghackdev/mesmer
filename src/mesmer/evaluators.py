@@ -146,6 +146,26 @@ class NotContainsAny(ResponseEvaluator):
         )
 
 
+class RecordOnly(ResponseEvaluator):
+    scale: RatingScale = Field(default_factory=lambda: RatingScale(min=0, max=1))
+    name: str = "record_only"
+
+    async def evaluate(
+        self,
+        objective: Objective,
+        trajectory: CandidateTrajectory,
+    ) -> EvaluationResult:
+        response = trajectory.last_response.text if trajectory.last_response else ""
+        return EvaluationResult(
+            name=self.name,
+            score=0.0,
+            normalized_score=0.0,
+            passed=None,
+            reason="Recorded response without judging success.",
+            metadata={"response_length": len(response)},
+        )
+
+
 class Criteria(ResponseEvaluator):
     scale: RatingScale = Field(default_factory=lambda: RatingScale(min=0, max=1))
     name: str = "criteria"
@@ -216,6 +236,7 @@ class JudgePanel(ResponseEvaluator):
                 if passed
                 else "No panel evaluator passed."
             ),
+            child_results=results,
             metadata={
                 "aggregation": "mean_normalized_score_any_pass",
                 "evaluators": [evaluator.name for evaluator in self.evaluators],
@@ -234,6 +255,7 @@ __all__ = [
     "JudgePanel",
     "LLMRatingEvaluator",
     "NotContainsAny",
+    "RecordOnly",
     "RatingScale",
     "ResponseEvaluator",
     "SentenceTransformersEmbeddingProvider",

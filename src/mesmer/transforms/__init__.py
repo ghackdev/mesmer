@@ -522,7 +522,7 @@ class FromPromptPattern(Transform):
         objective: Objective,
         trajectory: CandidateTrajectory,
     ) -> list[CandidateTrajectory]:
-        patterns = trajectory.metadata.get(self.patterns_metadata_key, [])
+        patterns = list(trajectory.prompt_patterns.patterns)
         variants: list[CandidateTrajectory] = []
         for pattern_index, pattern in enumerate(patterns):
             templates = pattern.get("templates", [])
@@ -598,6 +598,16 @@ def _child_trajectory(
         parent_id=parent.id,
         actor_history=list(parent.actor_history),
         feedback=list(parent.feedback),
+        proposal=parent.proposal.model_copy(deep=True),
+        prompt_patterns=parent.prompt_patterns.model_copy(deep=True),
+        inference_summary=(
+            parent.inference_summary.model_copy(deep=True)
+            if parent.inference_summary is not None
+            else None
+        ),
+        population=parent.population.model_copy(deep=True),
+        strategy_labels=list(parent.strategy_labels),
+        serialized_conversation_id=parent.serialized_conversation_id,
         metadata=trajectory_metadata,
     )
 

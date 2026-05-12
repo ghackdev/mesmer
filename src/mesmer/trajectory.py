@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Any
 
 from pydantic import Field
@@ -49,18 +50,47 @@ class EvaluationResult(MesmerModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class ProposalGenericityRisk(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    UNKNOWN = "unknown"
+
+
+class ProposalRiskReason(StrEnum):
+    DIRECT_SECRET_REQUEST = "direct_secret_request"
+    FORCED_ECHO = "forced_echo"
+    OVER_SEEDED = "over_seeded"
+    MISSING_EVIDENCE_SLOT = "missing_evidence_slot"
+    WEAK_TACTIC_HISTORY = "weak_tactic_history"
+    HIGH_GENERICITY_RISK = "high_genericity_risk"
+    MEDIUM_GENERICITY_RISK = "medium_genericity_risk"
+    LOW_RISK = "low_risk"
+    WIDTH_LIMIT = "width_limit"
+    DIRECT_REPLAY_QUOTA = "direct_replay_quota"
+    BELOW_THRESHOLD = "below_threshold"
+
+
+class ProposalRiskAssessment(MesmerModel):
+    score: float = Field(default=1.0, ge=0.0, le=1.0)
+    reasons: list[ProposalRiskReason] = Field(default_factory=list)
+    family_stats: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class ProposalTrace(MesmerModel):
     evidence_slot: str | None = None
     tactic_family: str | None = None
     seeded_terms: list[str] = Field(default_factory=list)
     expected_claim_type: str = ""
-    genericity_risk: str = ""
+    genericity_risk: ProposalGenericityRisk = ProposalGenericityRisk.UNKNOWN
     improvement: str = ""
 
 
 class PromptPatternTrace(MesmerModel):
     ids: list[str] = Field(default_factory=list)
     context: str = ""
+    patterns: list[dict[str, Any]] = Field(default_factory=list)
     tried: bool = False
     outcome_marked: bool = False
 
@@ -88,8 +118,9 @@ class InferenceSummary(MesmerModel):
 
 class ProposalPruneTrace(MesmerModel):
     score: float = 0.0
-    reasons: list[str] = Field(default_factory=list)
+    reasons: list[ProposalRiskReason] = Field(default_factory=list)
     family_stats: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class PopulationTrace(MesmerModel):
@@ -100,7 +131,7 @@ class PopulationTrace(MesmerModel):
     mutator: str = ""
     branch_index: int | None = None
     mutated_template: str = ""
-    replacements: list[str] = Field(default_factory=list)
+    replacements: list[dict[str, str]] = Field(default_factory=list)
     mutation_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -108,6 +139,26 @@ class TargetErrorTrace(MesmerModel):
     error_type: str
     message: str
     recoverable: bool = True
+
+
+class TrajectoryTrace(MesmerModel):
+    id: str
+    parent_id: str | None = None
+    depth: int = 0
+    actor_history: list[Message] = Field(default_factory=list)
+    feedback: list[str] = Field(default_factory=list)
+    constraints: list[ConstraintResult] = Field(default_factory=list)
+    evaluations: list[EvaluationResult] = Field(default_factory=list)
+    proposal: ProposalTrace = Field(default_factory=ProposalTrace)
+    prompt_patterns: PromptPatternTrace = Field(default_factory=PromptPatternTrace)
+    inference_summary: InferenceSummary | None = None
+    proposal_prune: ProposalPruneTrace | None = None
+    population: PopulationTrace = Field(default_factory=PopulationTrace)
+    target_error: TargetErrorTrace | None = None
+    strategy_labels: list[str] = Field(default_factory=list)
+    serialized_conversation_id: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    candidate_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class CandidateTrajectory(MesmerModel):

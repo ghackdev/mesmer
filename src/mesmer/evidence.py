@@ -41,6 +41,77 @@ class ClaimOrigin(StrEnum):
     ARTIFACT = "artifact"
 
 
+class ClaimSeedSource(StrEnum):
+    PROMPT = "prompt"
+    HYPOTHESIS = "hypothesis"
+    CONVERSATION = "conversation"
+    TARGET_RESPONSE = "target_response"
+
+
+class ClaimProvenanceReason(StrEnum):
+    TARGET_RESPONSE_SUPPORTED = "target_response_supported"
+    PROMPT_SEEDED = "prompt_seeded"
+    HYPOTHESIS_SEEDED = "hypothesis_seeded"
+    CONVERSATION_SEEDED = "conversation_seeded"
+    PRIOR_TARGET_OBSERVED = "prior_target_observed"
+    ARTIFACT = "artifact"
+    GENERIC_OR_TEMPLATE_PROSE = "generic_or_template_prose"
+    ECHO = "echo"
+    UNKNOWN = "unknown"
+
+
+class ClaimProvenanceAssessment(MesmerModel):
+    origin: ClaimOrigin = ClaimOrigin.UNKNOWN
+    independence: float = Field(default=0.5, ge=0.0, le=1.0)
+    reasons: list[ClaimProvenanceReason] = Field(default_factory=list)
+    seeded_by: list[ClaimSeedSource] = Field(default_factory=list)
+    first_seen_claim_id: str | None = None
+    first_seen_response_id: str | None = None
+    evidence_slot: str | None = None
+    tactic_family: str | None = None
+    is_artifact: bool = False
+    is_generic_or_template_prose: bool = False
+    is_response_supported: bool = False
+    support_claim_ids: list[str] = Field(default_factory=list)
+    seed_sources: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class HypothesisSupportDecision(StrEnum):
+    SUPPORTED = "supported"
+    UNSUPPORTED = "unsupported"
+    AMBIGUOUS = "ambiguous"
+
+
+class HypothesisSection(StrEnum):
+    VERIFIED_RECONSTRUCTION = "verified_reconstruction"
+    CANDIDATE_CLUES = "candidate_clues"
+    SEEDED_OR_SPECULATIVE = "seeded_or_speculative"
+    EXCLUDED_OR_ARTIFACTS = "excluded_or_artifacts"
+    BEHAVIOR_NOTES = "behavior_notes"
+
+
+class HypothesisStatement(MesmerModel):
+    section: HypothesisSection
+    text: str
+    supporting_claim_ids: list[str] = Field(default_factory=list)
+
+
+class HypothesisStatementSupport(MesmerModel):
+    statement_text: str
+    section: HypothesisSection = HypothesisSection.VERIFIED_RECONSTRUCTION
+    decision: HypothesisSupportDecision = HypothesisSupportDecision.AMBIGUOUS
+    supporting_claim_ids: list[str] = Field(default_factory=list)
+    reason: str = ""
+
+
+class HypothesisSupportAssessment(MesmerModel):
+    statements: list[HypothesisStatementSupport] = Field(default_factory=list)
+    confidence_cap: float | None = Field(default=None, ge=0.0, le=1.0)
+    cap_reasons: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class CapabilityProfile(MesmerModel):
     """Executable threat-model and target-capability declaration."""
 
@@ -86,6 +157,9 @@ class EvidenceRecord(MesmerModel):
     normalized_score: float | None = None
     passed: bool | None = None
     label: str | None = None
+    tactic_family: str | None = None
+    evidence_slot: str | None = None
+    failure_reason: str | None = None
     cost: float | None = None
     latency_ms: float | None = None
     input_tokens: int | None = None
@@ -134,9 +208,10 @@ class ClaimAgreement(MesmerModel):
 
 
 class ClaimAnnotations(MesmerModel):
+    provenance_annotated: bool = False
     source: ClaimSourceContext = Field(default_factory=ClaimSourceContext)
     agreement: ClaimAgreement | None = None
-    provenance_reasons: list[str] = Field(default_factory=list)
+    provenance_reasons: list[ClaimProvenanceReason] = Field(default_factory=list)
     provenance_anchors: list[str] = Field(default_factory=list)
     seeded_terms: list[str] = Field(default_factory=list)
 
@@ -168,8 +243,13 @@ class ClaimRecord(MesmerModel):
 
 
 class HypothesisSynthesis(MesmerModel):
-    text: str
+    text: str = ""
     value: dict[str, Any] = Field(default_factory=dict)
+    verified_reconstruction: list[str] = Field(default_factory=list)
+    candidate_clues: list[str] = Field(default_factory=list)
+    seeded_or_speculative: list[str] = Field(default_factory=list)
+    excluded_or_artifacts: list[str] = Field(default_factory=list)
+    behavior_notes: list[str] = Field(default_factory=list)
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     supporting_claim_ids: list[str] = Field(default_factory=list)
     uncertainty: str = ""
@@ -181,6 +261,11 @@ class HypothesisRecord(MesmerModel):
     id: str = Field(default_factory=lambda: new_id("hypothesis"))
     text: str
     value: dict[str, Any] = Field(default_factory=dict)
+    verified_reconstruction: list[str] = Field(default_factory=list)
+    candidate_clues: list[str] = Field(default_factory=list)
+    seeded_or_speculative: list[str] = Field(default_factory=list)
+    excluded_or_artifacts: list[str] = Field(default_factory=list)
+    behavior_notes: list[str] = Field(default_factory=list)
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     supporting_claim_ids: list[str] = Field(default_factory=list)
     uncertainty: str = ""

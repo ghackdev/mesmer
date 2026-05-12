@@ -21,6 +21,10 @@ class TargetResponse(MesmerModel):
     cost: float | None = None
     input_tokens: int | None = None
     output_tokens: int | None = None
+    finish_reason: str | None = None
+    target_error: str | None = None
+    error_type: str | None = None
+    recoverable: bool = False
 
 
 class TargetContext(MesmerModel):
